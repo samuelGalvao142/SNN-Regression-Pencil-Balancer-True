@@ -1,0 +1,880 @@
+/******************************************************************************
+  Copyright (c) 2007, Intel Corp.
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of Intel Corporation nor the names of its contributors
+      may be used to endorse or promote products derived from this software
+      without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+  THE POSSIBILITY OF SUCH DAMAGE.
+******************************************************************************/
+
+#pragma once
+
+#ifndef _DECIMAL_
+#define _DECIMAL_
+
+namespace std {
+  namespace decimal {
+    // 3.2.2 class decimal32:
+    class decimal32;
+  
+    // 3.2.3 class decimal64:
+    class decimal64;
+  
+    // 3.2.4 class decimal128:
+    class decimal128;
+  }
+}
+
+namespace std {
+  namespace decimal {
+    class decimal32 {
+    public:
+      typedef __declspec(mode(SD)) float __dec32;
+
+      // 3.2.2.1 construct/copy/destroy:
+      decimal32() : __dec32_value(+0.e-101DF) {}
+      decimal32(__dec32 __d) : __dec32_value(__d) {}
+
+      // 3.2.2.2 conversion from floating-point type:
+      explicit decimal32(decimal64 __d64);
+      explicit decimal32(decimal128 __d128);
+      explicit decimal32(float __r) : __dec32_value(__r) {}
+      explicit decimal32(double __r) : __dec32_value(__r) {}
+      explicit decimal32(long double __r) : __dec32_value(__r) {}
+      
+      // 3.2.2.3 conversion from integral type:
+      decimal32(int __z) : __dec32_value(__z) {}
+      decimal32(unsigned int __z) : __dec32_value(__z) {}
+      decimal32(long __z) : __dec32_value(__z) {}
+      decimal32(unsigned long __z) : __dec32_value(__z) {}
+      decimal32(long long __z) : __dec32_value(__z) {}
+      decimal32(unsigned long long __z) : __dec32_value(__z) {}
+      
+      // 3.2.2.4 conversion to integral type:
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+    explicit operator long long() const { return (long long)__dec32_value; }
+#endif
+     
+      // 3.2.2.5 increment and decrement operators:
+      decimal32 & operator++() {
+        ++__dec32_value;
+        return *this;
+      }
+      decimal32 operator++(int) {
+        decimal32 __temp = *this;
+        ++__dec32_value;
+        return __temp;
+      }
+      decimal32 & operator--() {
+        --__dec32_value;
+        return *this;
+      }
+      decimal32 operator--(int) {
+        decimal32 __temp = *this;
+        --__dec32_value;
+        return __temp;
+      }
+      
+      // 3.2.2.6 compound assignment:
+      #define _DEC32_OPASSIGN(_OP, _TYPE) \
+        decimal32& operator _OP(_TYPE __rhs) { \
+          __dec32_value _OP __rhs; \
+          return *this; \
+        }
+      _DEC32_OPASSIGN(+=, int)
+      _DEC32_OPASSIGN(+=, unsigned int)
+      _DEC32_OPASSIGN(+=, long)
+      _DEC32_OPASSIGN(+=, unsigned long)
+      _DEC32_OPASSIGN(+=, long long)
+      _DEC32_OPASSIGN(+=, unsigned long long)
+      _DEC32_OPASSIGN(-=, int)
+      _DEC32_OPASSIGN(-=, unsigned int)
+      _DEC32_OPASSIGN(-=, long)
+      _DEC32_OPASSIGN(-=, unsigned long)
+      _DEC32_OPASSIGN(-=, long long)
+      _DEC32_OPASSIGN(-=, unsigned long long)
+      _DEC32_OPASSIGN(*=, int)
+      _DEC32_OPASSIGN(*=, unsigned int)
+      _DEC32_OPASSIGN(*=, long)
+      _DEC32_OPASSIGN(*=, unsigned long)
+      _DEC32_OPASSIGN(*=, long long)
+      _DEC32_OPASSIGN(*=, unsigned long long)
+      _DEC32_OPASSIGN(/=, int)
+      _DEC32_OPASSIGN(/=, unsigned int)
+      _DEC32_OPASSIGN(/=, long)
+      _DEC32_OPASSIGN(/=, unsigned long)
+      _DEC32_OPASSIGN(/=, long long)
+      _DEC32_OPASSIGN(/=, unsigned long long)
+      #undef _DEC32_OPASSIGN
+      #define _DEC32_OPASSIGN(_OP, _TYPE) \
+        decimal32& operator _OP(_TYPE __rhs);
+      _DEC32_OPASSIGN(+=, decimal32)
+      _DEC32_OPASSIGN(+=, decimal64)
+      _DEC32_OPASSIGN(+=, decimal128)
+      _DEC32_OPASSIGN(-=, decimal32)
+      _DEC32_OPASSIGN(-=, decimal64)
+      _DEC32_OPASSIGN(-=, decimal128)
+      _DEC32_OPASSIGN(*=, decimal32)
+      _DEC32_OPASSIGN(*=, decimal64)
+      _DEC32_OPASSIGN(*=, decimal128)
+      _DEC32_OPASSIGN(/=, decimal32)
+      _DEC32_OPASSIGN(/=, decimal64)
+      _DEC32_OPASSIGN(/=, decimal128)
+      #undef _DEC32_OPASSIGN
+
+      // Conversion to C types
+      operator _Decimal32() const  { return (_Decimal32)__dec32_value; }
+      operator _Decimal64() const  { return (_Decimal64)__dec32_value; }
+      operator _Decimal128() const { return (_Decimal128)__dec32_value; }
+
+    private:
+      __dec32 __dec32_value;
+
+    public:
+      __dec32 __get_dec_value() { return __dec32_value; }
+      void __set_dec_value(__dec32 __d32v) { __dec32_value = __d32v; }
+    };
+  }
+}
+
+namespace std {
+  namespace decimal {
+    class decimal64 {
+    public:
+      typedef __declspec(mode(DD)) float __dec64;
+
+      // 3.2.3.1 construct/copy/destroy:
+      decimal64() : __dec64_value(+0.e-398DD) {}
+      decimal64(__dec64 __d) : __dec64_value(__d) {}
+ 
+      // 3.2.3.2 conversion from floating-point type:
+      decimal64(decimal32 __d32);
+      explicit decimal64(decimal128 __d128);
+      explicit decimal64(float __r) : __dec64_value(__r) {}
+      explicit decimal64(double __r) : __dec64_value(__r) {}
+      explicit decimal64(long double __r) : __dec64_value(__r) {}
+ 
+      // 3.2.3.3 conversion from integral type:
+      decimal64(int __z) : __dec64_value(__z) {}
+      decimal64(unsigned int __z) : __dec64_value(__z) {}
+      decimal64(long __z) : __dec64_value(__z) {}
+      decimal64(unsigned long __z) : __dec64_value(__z) {}
+      decimal64(long long __z) : __dec64_value(__z) {}
+      decimal64(unsigned long long __z) : __dec64_value(__z) {}
+ 
+      // 3.2.3.4 conversion to integral type:
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+      explicit operator long long() const { return (long long)__dec64_value; }
+#endif
+ 
+      // 3.2.3.5 increment and decrement operators:
+      decimal64 & operator++() {
+        ++__dec64_value;
+        return *this;
+      }
+      decimal64 operator++(int) {
+        decimal64 __temp = *this;
+        ++__dec64_value;
+        return __temp;
+      }
+      decimal64 & operator--() {
+        --__dec64_value;
+        return *this;
+      }
+      decimal64 operator--(int) {
+        decimal64 __temp = *this;
+        --__dec64_value;
+        return __temp;
+      }
+ 
+      // 3.2.3.6 compound assignment:
+      #define _DEC64_OPASSIGN(_OP, _TYPE) \
+        decimal64& operator _OP(_TYPE __rhs) { \
+          __dec64_value _OP __rhs; \
+          return *this; \
+        }
+      _DEC64_OPASSIGN(+=, int)
+      _DEC64_OPASSIGN(+=, unsigned int)
+      _DEC64_OPASSIGN(+=, long)
+      _DEC64_OPASSIGN(+=, unsigned long)
+      _DEC64_OPASSIGN(+=, long long)
+      _DEC64_OPASSIGN(+=, unsigned long long)
+      _DEC64_OPASSIGN(-=, int)
+      _DEC64_OPASSIGN(-=, unsigned int)
+      _DEC64_OPASSIGN(-=, long)
+      _DEC64_OPASSIGN(-=, unsigned long)
+      _DEC64_OPASSIGN(-=, long long)
+      _DEC64_OPASSIGN(-=, unsigned long long)
+      _DEC64_OPASSIGN(*=, int)
+      _DEC64_OPASSIGN(*=, unsigned int)
+      _DEC64_OPASSIGN(*=, long)
+      _DEC64_OPASSIGN(*=, unsigned long)
+      _DEC64_OPASSIGN(*=, long long)
+      _DEC64_OPASSIGN(*=, unsigned long long)
+      _DEC64_OPASSIGN(/=, int)
+      _DEC64_OPASSIGN(/=, unsigned int)
+      _DEC64_OPASSIGN(/=, long)
+      _DEC64_OPASSIGN(/=, unsigned long)
+      _DEC64_OPASSIGN(/=, long long)
+      _DEC64_OPASSIGN(/=, unsigned long long)
+      #undef _DEC64_OPASSIGN
+      #define _DEC64_OPASSIGN(_OP, _TYPE) \
+        decimal64& operator _OP(_TYPE __rhs);
+      _DEC64_OPASSIGN(+=, decimal32)
+      _DEC64_OPASSIGN(+=, decimal64)
+      _DEC64_OPASSIGN(+=, decimal128)
+      _DEC64_OPASSIGN(-=, decimal32)
+      _DEC64_OPASSIGN(-=, decimal64)
+      _DEC64_OPASSIGN(-=, decimal128)
+      _DEC64_OPASSIGN(*=, decimal32)
+      _DEC64_OPASSIGN(*=, decimal64)
+      _DEC64_OPASSIGN(*=, decimal128)
+      _DEC64_OPASSIGN(/=, decimal32)
+      _DEC64_OPASSIGN(/=, decimal64)
+      _DEC64_OPASSIGN(/=, decimal128)
+      #undef _DEC64_OPASSIGN
+
+      // Conversion to C types
+      operator _Decimal32() const  { return (_Decimal32)__dec64_value; }
+      operator _Decimal64() const  { return (_Decimal64)__dec64_value; }
+      operator _Decimal128() const { return (_Decimal128)__dec64_value; }
+
+    private:
+      __dec64 __dec64_value;
+
+    public:
+      __dec64 __get_dec_value() { return __dec64_value; }
+      void __set_dec_value(__dec64 __d64v) { __dec64_value = __d64v; }
+    };
+  }
+}
+
+namespace std {
+  namespace decimal {
+    class decimal128 {
+    public:
+      typedef __declspec(mode(TD)) float __dec128;
+
+      // 3.2.4.1 construct/copy/destroy:
+      decimal128() : __dec128_value(+0.e-6176) {}
+      decimal128(__dec128 __d) : __dec128_value(__d) {}
+     
+      // 3.2.4.2 conversion from floating-point type:
+      decimal128(decimal32 __d32);
+      decimal128(decimal64 __d64);
+      explicit decimal128(float __r) : __dec128_value(__r) {}
+      explicit decimal128(double __r) : __dec128_value(__r) {}
+      explicit decimal128(long double __r) : __dec128_value(__r) {}
+     
+      // 3.2.4.3 conversion from integral type:
+      decimal128(int __z) : __dec128_value(__z) {}
+      decimal128(unsigned int __z) : __dec128_value(__z) {}
+      decimal128(long __z) : __dec128_value(__z) {}
+      decimal128(unsigned long __z) : __dec128_value(__z) {}
+      decimal128(long long __z) : __dec128_value(__z) {}
+      decimal128(unsigned long long __z) : __dec128_value(__z) {}
+     
+      // 3.2.4.4 conversion to integral type:
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+      explicit operator long long() const { return (long long)__dec128_value; }
+#endif
+     
+      // 3.2.4.5 increment and decrement operators:
+      decimal128 & operator++() {
+        ++__dec128_value;
+        return *this;
+      }
+      decimal128 operator++(int) {
+        decimal128 __temp = *this;
+        ++__dec128_value;
+        return __temp;
+      }
+      decimal128 & operator--() {
+        --__dec128_value;
+        return *this;
+      }
+      decimal128 operator--(int) {
+        decimal128 __temp = *this;
+        --__dec128_value;
+        return __temp;
+      }
+     
+      // 3.2.4.6 compound assignment:
+      #define _DEC128_OPASSIGN(_OP, _TYPE) \
+        decimal128& operator _OP(_TYPE __rhs) { \
+          __dec128_value _OP __rhs; \
+          return *this; \
+        }
+      _DEC128_OPASSIGN(+=, int)
+      _DEC128_OPASSIGN(+=, unsigned int)
+      _DEC128_OPASSIGN(+=, long)
+      _DEC128_OPASSIGN(+=, unsigned long)
+      _DEC128_OPASSIGN(+=, long long)
+      _DEC128_OPASSIGN(+=, unsigned long long)
+      _DEC128_OPASSIGN(-=, int)
+      _DEC128_OPASSIGN(-=, unsigned int)
+      _DEC128_OPASSIGN(-=, long)
+      _DEC128_OPASSIGN(-=, unsigned long)
+      _DEC128_OPASSIGN(-=, long long)
+      _DEC128_OPASSIGN(-=, unsigned long long)
+      _DEC128_OPASSIGN(*=, int)
+      _DEC128_OPASSIGN(*=, unsigned int)
+      _DEC128_OPASSIGN(*=, long)
+      _DEC128_OPASSIGN(*=, unsigned long)
+      _DEC128_OPASSIGN(*=, long long)
+      _DEC128_OPASSIGN(*=, unsigned long long)
+      _DEC128_OPASSIGN(/=, int)
+      _DEC128_OPASSIGN(/=, unsigned int)
+      _DEC128_OPASSIGN(/=, long)
+      _DEC128_OPASSIGN(/=, unsigned long)
+      _DEC128_OPASSIGN(/=, long long)
+      _DEC128_OPASSIGN(/=, unsigned long long)
+      #undef _DEC128_OPASSIGN
+      #define _DEC128_OPASSIGN(_OP, _TYPE) \
+        decimal128& operator _OP(_TYPE __rhs);
+      _DEC128_OPASSIGN(+=, decimal32)
+      _DEC128_OPASSIGN(+=, decimal64)
+      _DEC128_OPASSIGN(+=, decimal128)
+      _DEC128_OPASSIGN(-=, decimal32)
+      _DEC128_OPASSIGN(-=, decimal64)
+      _DEC128_OPASSIGN(-=, decimal128)
+      _DEC128_OPASSIGN(*=, decimal32)
+      _DEC128_OPASSIGN(*=, decimal64)
+      _DEC128_OPASSIGN(*=, decimal128)
+      _DEC128_OPASSIGN(/=, decimal32)
+      _DEC128_OPASSIGN(/=, decimal64)
+      _DEC128_OPASSIGN(/=, decimal128)
+      #undef _DEC128_OPASSIGN
+
+      // Conversion to C types
+      operator _Decimal32() const  { return (_Decimal32)__dec128_value; }
+      operator _Decimal64() const  { return (_Decimal64)__dec128_value; }
+      operator _Decimal128() const { return (_Decimal128)__dec128_value; }
+
+    private:
+      __dec128 __dec128_value;
+
+    public:
+      __dec128 __get_dec_value() { return __dec128_value; }
+      void __set_dec_value(__dec128 __d128v) { __dec128_value = __d128v; }
+    };
+  }
+}
+
+namespace std {
+  namespace decimal {
+    inline decimal32::decimal32(decimal64 __d64) : 
+           __dec32_value(__d64.__get_dec_value()) {}
+    inline decimal32::decimal32(decimal128 __d128) :
+           __dec32_value(__d128.__get_dec_value()) {}
+    inline decimal64::decimal64(decimal32 __d32) : 
+           __dec64_value(__d32.__get_dec_value()) {}
+    inline decimal64::decimal64(decimal128 __d128) :
+           __dec64_value(__d128.__get_dec_value()) {}
+    inline decimal128::decimal128(decimal32 __d32) : 
+           __dec128_value(__d32.__get_dec_value()) {}
+    inline decimal128::decimal128(decimal64 __d64) :
+           __dec128_value(__d64.__get_dec_value()) {}
+    #define _DEC32_OPASSIGN(_OP, _TYPE) \
+      decimal32& decimal32::operator _OP(_TYPE __rhs) { \
+        __dec32_value _OP __rhs.__get_dec_value(); \
+        return *this; \
+      }
+    _DEC32_OPASSIGN(+=, decimal32)
+    _DEC32_OPASSIGN(+=, decimal64)
+    _DEC32_OPASSIGN(+=, decimal128)
+    _DEC32_OPASSIGN(-=, decimal32)
+    _DEC32_OPASSIGN(-=, decimal64)
+    _DEC32_OPASSIGN(-=, decimal128)
+    _DEC32_OPASSIGN(*=, decimal32)
+    _DEC32_OPASSIGN(*=, decimal64)
+    _DEC32_OPASSIGN(*=, decimal128)
+    _DEC32_OPASSIGN(/=, decimal32)
+    _DEC32_OPASSIGN(/=, decimal64)
+    _DEC32_OPASSIGN(/=, decimal128)
+    #undef _DEC32_OPASSIGN
+    #define _DEC64_OPASSIGN(_OP, _TYPE) \
+      decimal64& decimal64::operator _OP(_TYPE __rhs) { \
+        __dec64_value _OP __rhs.__get_dec_value(); \
+        return *this; \
+      }
+    _DEC64_OPASSIGN(+=, decimal32)
+    _DEC64_OPASSIGN(+=, decimal64)
+    _DEC64_OPASSIGN(+=, decimal128)
+    _DEC64_OPASSIGN(-=, decimal32)
+    _DEC64_OPASSIGN(-=, decimal64)
+    _DEC64_OPASSIGN(-=, decimal128)
+    _DEC64_OPASSIGN(*=, decimal32)
+    _DEC64_OPASSIGN(*=, decimal64)
+    _DEC64_OPASSIGN(*=, decimal128)
+    _DEC64_OPASSIGN(/=, decimal32)
+    _DEC64_OPASSIGN(/=, decimal64)
+    _DEC64_OPASSIGN(/=, decimal128)
+    #undef _DEC64_OPASSIGN
+    #define _DEC128_OPASSIGN(_OP, _TYPE) \
+      decimal128& decimal128::operator _OP(_TYPE __rhs) { \
+        __dec128_value _OP __rhs.__get_dec_value(); \
+        return *this; \
+      }
+    _DEC128_OPASSIGN(+=, decimal32)
+    _DEC128_OPASSIGN(+=, decimal64)
+    _DEC128_OPASSIGN(+=, decimal128)
+    _DEC128_OPASSIGN(-=, decimal32)
+    _DEC128_OPASSIGN(-=, decimal64)
+    _DEC128_OPASSIGN(-=, decimal128)
+    _DEC128_OPASSIGN(*=, decimal32)
+    _DEC128_OPASSIGN(*=, decimal64)
+    _DEC128_OPASSIGN(*=, decimal128)
+    _DEC128_OPASSIGN(/=, decimal32)
+    _DEC128_OPASSIGN(/=, decimal64)
+    _DEC128_OPASSIGN(/=, decimal128)
+    #undef _DEC128_OPASSIGN
+  }
+}
+
+namespace std {
+  namespace decimal {
+    // 3.2.6 conversion to generic floating-point type:
+    inline float decimal32_to_float(decimal32 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline float decimal64_to_float(decimal64 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline float decimal128_to_float(decimal128 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline float decimal_to_float(decimal32 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline float decimal_to_float(decimal64 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline float decimal_to_float(decimal128 __d) {
+      return (float)__d.__get_dec_value();
+    }
+    inline double decimal32_to_double(decimal32 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline double decimal64_to_double(decimal64 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline double decimal128_to_double(decimal128 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline double decimal_to_double(decimal32 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline double decimal_to_double(decimal64 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline double decimal_to_double(decimal128 __d) {
+      return (double)__d.__get_dec_value();
+    }
+    inline long double decimal32_to_long_double(decimal32 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+    inline long double decimal64_to_long_double(decimal64 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+    inline long double decimal128_to_long_double(decimal128 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+    inline long double decimal_to_long_double(decimal32 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+    inline long double decimal_to_long_double(decimal64 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+    inline long double decimal_to_long_double(decimal128 __d) {
+      return (long double)__d.__get_dec_value();
+    }
+  
+    // 3.2.7 unary arithmetic operators:
+    inline decimal32 operator+(decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(__rhs.__get_dec_value() + 0);
+      return __temp;
+    }
+    inline decimal64 operator+(decimal64 __rhs) {
+      decimal64 __temp;
+      __temp.__set_dec_value(__rhs.__get_dec_value() + 0);
+      return __temp;
+    }
+    inline decimal128 operator+(decimal128 __rhs) {
+      decimal128 __temp;
+      __temp.__set_dec_value(__rhs.__get_dec_value() + 0);
+      return __temp;
+    }
+    inline decimal32 operator-(decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(-__rhs.__get_dec_value());
+      return __temp;
+    }
+    inline decimal64 operator-(decimal64 __rhs) {
+      decimal64 __temp;
+      __temp.__set_dec_value(-__rhs.__get_dec_value());
+      return __temp;
+    }
+    decimal128 operator-(decimal128 __rhs) {
+      decimal128 __temp;
+      __temp.__set_dec_value(-__rhs.__get_dec_value());
+      return __temp;
+    }
+  
+    // 3.2.8 binary arithmetic operators:
+    #define _DEC32_BINARY_OP(_OP, _TYPE) \
+      inline decimal32 operator _OP(_TYPE __lhs, decimal32 __rhs) { \
+        decimal32 __temp; \
+        __temp.__set_dec_value(__lhs _OP __rhs.__get_dec_value()); \
+        return __temp; \
+      } \
+      inline decimal32 operator _OP(decimal32 __lhs, _TYPE __rhs) { \
+        decimal32 __temp; \
+        __temp.__set_dec_value(__lhs.__get_dec_value() _OP __rhs); \
+        return __temp; \
+      }
+     _DEC32_BINARY_OP(+, int)
+     _DEC32_BINARY_OP(+, unsigned int)
+     _DEC32_BINARY_OP(+, long)
+     _DEC32_BINARY_OP(+, unsigned long)
+     _DEC32_BINARY_OP(+, long long)
+     _DEC32_BINARY_OP(+, unsigned long long)
+     _DEC32_BINARY_OP(-, int)
+     _DEC32_BINARY_OP(-, unsigned int)
+     _DEC32_BINARY_OP(-, long)
+     _DEC32_BINARY_OP(-, unsigned long)
+     _DEC32_BINARY_OP(-, long long)
+     _DEC32_BINARY_OP(-, unsigned long long)
+     _DEC32_BINARY_OP(*, int)
+     _DEC32_BINARY_OP(*, unsigned int)
+     _DEC32_BINARY_OP(*, long)
+     _DEC32_BINARY_OP(*, unsigned long)
+     _DEC32_BINARY_OP(*, long long)
+     _DEC32_BINARY_OP(*, unsigned long long)
+     _DEC32_BINARY_OP(/, int)
+     _DEC32_BINARY_OP(/, unsigned int)
+     _DEC32_BINARY_OP(/, long)
+     _DEC32_BINARY_OP(/, unsigned long)
+     _DEC32_BINARY_OP(/, long long)
+     _DEC32_BINARY_OP(/, unsigned long long)
+    #undef _DEC32_BINARY_OP
+    inline decimal32 operator+(decimal32 __lhs, decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(__lhs.__get_dec_value() + __rhs.__get_dec_value());
+      return __temp;
+    }
+    inline decimal32 operator-(decimal32 __lhs, decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(__lhs.__get_dec_value() - __rhs.__get_dec_value());
+      return __temp;
+    }
+    inline decimal32 operator*(decimal32 __lhs, decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(__lhs.__get_dec_value() * __rhs.__get_dec_value());
+      return __temp;
+    }
+    decimal32 operator/(decimal32 __lhs, decimal32 __rhs) {
+      decimal32 __temp;
+      __temp.__set_dec_value(__lhs.__get_dec_value() / __rhs.__get_dec_value());
+      return __temp;
+    }
+
+    #define _DEC64_BINARY_OP_INT(_OP, _TYPE) \
+      inline decimal64 operator _OP(_TYPE __lhs, decimal64 __rhs) { \
+        decimal64 __temp; \
+        __temp.__set_dec_value(__lhs _OP __rhs.__get_dec_value()); \
+        return __temp; \
+      } \
+      inline decimal64 operator _OP(decimal64 __lhs, _TYPE __rhs) { \
+        decimal64 __temp; \
+        __temp.__set_dec_value(__lhs.__get_dec_value() _OP __rhs); \
+        return __temp; \
+      }
+    _DEC64_BINARY_OP_INT(+, int)
+    _DEC64_BINARY_OP_INT(+, unsigned int)
+    _DEC64_BINARY_OP_INT(+, long)
+    _DEC64_BINARY_OP_INT(+, unsigned long)
+    _DEC64_BINARY_OP_INT(+, long long)
+    _DEC64_BINARY_OP_INT(+, unsigned long long)
+    _DEC64_BINARY_OP_INT(-, int)
+    _DEC64_BINARY_OP_INT(-, unsigned int)
+    _DEC64_BINARY_OP_INT(-, long)
+    _DEC64_BINARY_OP_INT(-, unsigned long)
+    _DEC64_BINARY_OP_INT(-, long long)
+    _DEC64_BINARY_OP_INT(-, unsigned long long)
+    _DEC64_BINARY_OP_INT(*, int)
+    _DEC64_BINARY_OP_INT(*, unsigned int)
+    _DEC64_BINARY_OP_INT(*, long)
+    _DEC64_BINARY_OP_INT(*, unsigned long)
+    _DEC64_BINARY_OP_INT(*, long long)
+    _DEC64_BINARY_OP_INT(*, unsigned long long)
+    _DEC64_BINARY_OP_INT(/, int)
+    _DEC64_BINARY_OP_INT(/, unsigned int)
+    _DEC64_BINARY_OP_INT(/, long)
+    _DEC64_BINARY_OP_INT(/, unsigned long)
+    _DEC64_BINARY_OP_INT(/, long long)
+    _DEC64_BINARY_OP_INT(/, unsigned long long)
+    #undef _DEC64_BINARY_OP_INT
+
+    #define _DEC64_BINARY_OP_DEC(_OP, _TYPE1, _TYPE2) \
+      inline decimal64 operator _OP(_TYPE1 __lhs, _TYPE2 __rhs) { \
+        decimal64 __temp; \
+        __temp.__set_dec_value(__lhs.__get_dec_value() _OP __rhs.__get_dec_value()); \
+        return __temp; \
+      }
+    _DEC64_BINARY_OP_DEC(+, decimal32, decimal64)
+    _DEC64_BINARY_OP_DEC(+, decimal64, decimal32)
+    _DEC64_BINARY_OP_DEC(+, decimal64, decimal64)
+    _DEC64_BINARY_OP_DEC(-, decimal32, decimal64)
+    _DEC64_BINARY_OP_DEC(-, decimal64, decimal32)
+    _DEC64_BINARY_OP_DEC(-, decimal64, decimal64)
+    _DEC64_BINARY_OP_DEC(*, decimal32, decimal64)
+    _DEC64_BINARY_OP_DEC(*, decimal64, decimal32)
+    _DEC64_BINARY_OP_DEC(*, decimal64, decimal64)
+    _DEC64_BINARY_OP_DEC(/, decimal32, decimal64)
+    _DEC64_BINARY_OP_DEC(/, decimal64, decimal32)
+    _DEC64_BINARY_OP_DEC(/, decimal64, decimal64)
+    #undef _DEC64_BINARY_OP_DEC
+
+    #define _DEC128_BINARY_OP_INT(_OP, _TYPE) \
+      inline decimal128 operator _OP(_TYPE __lhs, decimal128 __rhs) { \
+        decimal128 __temp; \
+        __temp.__set_dec_value(__lhs _OP __rhs.__get_dec_value()); \
+        return __temp; \
+      } \
+      inline decimal128 operator _OP(decimal128 __lhs, _TYPE __rhs) { \
+        decimal128 __temp; \
+        __temp.__set_dec_value(__lhs.__get_dec_value() _OP __rhs); \
+        return __temp; \
+      }
+    _DEC128_BINARY_OP_INT(+, int)
+    _DEC128_BINARY_OP_INT(+, unsigned int)
+    _DEC128_BINARY_OP_INT(+, long)
+    _DEC128_BINARY_OP_INT(+, unsigned long)
+    _DEC128_BINARY_OP_INT(+, long long)
+    _DEC128_BINARY_OP_INT(+, unsigned long long)
+    _DEC128_BINARY_OP_INT(-, int)
+    _DEC128_BINARY_OP_INT(-, unsigned int)
+    _DEC128_BINARY_OP_INT(-, long)
+    _DEC128_BINARY_OP_INT(-, unsigned long)
+    _DEC128_BINARY_OP_INT(-, long long)
+    _DEC128_BINARY_OP_INT(-, unsigned long long)
+    _DEC128_BINARY_OP_INT(*, int)
+    _DEC128_BINARY_OP_INT(*, unsigned int)
+    _DEC128_BINARY_OP_INT(*, long)
+    _DEC128_BINARY_OP_INT(*, unsigned long)
+    _DEC128_BINARY_OP_INT(*, long long)
+    _DEC128_BINARY_OP_INT(*, unsigned long long)
+    _DEC128_BINARY_OP_INT(/, int)
+    _DEC128_BINARY_OP_INT(/, unsigned int)
+    _DEC128_BINARY_OP_INT(/, long)
+    _DEC128_BINARY_OP_INT(/, unsigned long)
+    _DEC128_BINARY_OP_INT(/, long long)
+    _DEC128_BINARY_OP_INT(/, unsigned long long)
+    #undef _DEC128_BINARY_OP_INT
+
+    #define _DEC128_BINARY_OP_DEC(_OP, _TYPE1, _TYPE2) \
+      inline decimal128 operator _OP(_TYPE1 __lhs, _TYPE2 __rhs) { \
+        decimal128 __temp; \
+        __temp.__set_dec_value(__lhs.__get_dec_value() _OP __rhs.__get_dec_value()); \
+        return __temp; \
+      }
+    _DEC128_BINARY_OP_DEC(+, decimal32, decimal128)
+    _DEC128_BINARY_OP_DEC(+, decimal128, decimal32)
+    _DEC128_BINARY_OP_DEC(+, decimal64, decimal128)
+    _DEC128_BINARY_OP_DEC(+, decimal128, decimal64)
+    _DEC128_BINARY_OP_DEC(+, decimal128, decimal128)
+    _DEC128_BINARY_OP_DEC(-, decimal32, decimal128)
+    _DEC128_BINARY_OP_DEC(-, decimal128, decimal32)
+    _DEC128_BINARY_OP_DEC(-, decimal64, decimal128)
+    _DEC128_BINARY_OP_DEC(-, decimal128, decimal64)
+    _DEC128_BINARY_OP_DEC(-, decimal128, decimal128)
+    _DEC128_BINARY_OP_DEC(*, decimal32, decimal128)
+    _DEC128_BINARY_OP_DEC(*, decimal128, decimal32)
+    _DEC128_BINARY_OP_DEC(*, decimal64, decimal128)
+    _DEC128_BINARY_OP_DEC(*, decimal128, decimal64)
+    _DEC128_BINARY_OP_DEC(*, decimal128, decimal128)
+    _DEC128_BINARY_OP_DEC(/, decimal32, decimal128)
+    _DEC128_BINARY_OP_DEC(/, decimal128, decimal32)
+    _DEC128_BINARY_OP_DEC(/, decimal64, decimal128)
+    _DEC128_BINARY_OP_DEC(/, decimal128, decimal64)
+    _DEC128_BINARY_OP_DEC(/, decimal128, decimal128)
+  
+    // 3.2.9 comparison operators:
+    #define _DEC_COMP_OP_INT(_OP, _TYPE) \
+      inline bool operator _OP(_TYPE __lhs, decimal32 __rhs) { \
+        return __lhs _OP __rhs.__get_dec_value(); \
+      } \
+      inline bool operator _OP(decimal32 __lhs, _TYPE __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs; \
+      } \
+      inline bool operator _OP(_TYPE __lhs, decimal64 __rhs) { \
+        return __lhs _OP __rhs.__get_dec_value(); \
+      } \
+      inline bool operator _OP(decimal64 __lhs, _TYPE __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs; \
+      } \
+      inline bool operator _OP(_TYPE __lhs, decimal128 __rhs) { \
+        return __lhs _OP __rhs.__get_dec_value(); \
+      } \
+      inline bool operator _OP(decimal128 __lhs, _TYPE __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs; \
+      }
+    _DEC_COMP_OP_INT(==, int)
+    _DEC_COMP_OP_INT(==, unsigned int)
+    _DEC_COMP_OP_INT(==, long)
+    _DEC_COMP_OP_INT(==, unsigned long)
+    _DEC_COMP_OP_INT(==, long long)
+    _DEC_COMP_OP_INT(==, unsigned long long)
+    _DEC_COMP_OP_INT(!=, int)
+    _DEC_COMP_OP_INT(!=, unsigned int)
+    _DEC_COMP_OP_INT(!=, long)
+    _DEC_COMP_OP_INT(!=, unsigned long)
+    _DEC_COMP_OP_INT(!=, long long)
+    _DEC_COMP_OP_INT(!=, unsigned long long)
+    _DEC_COMP_OP_INT(<, int)
+    _DEC_COMP_OP_INT(<, unsigned int)
+    _DEC_COMP_OP_INT(<, long)
+    _DEC_COMP_OP_INT(<, unsigned long)
+    _DEC_COMP_OP_INT(<, long long)
+    _DEC_COMP_OP_INT(<, unsigned long long)
+    _DEC_COMP_OP_INT(<=, int)
+    _DEC_COMP_OP_INT(<=, unsigned int)
+    _DEC_COMP_OP_INT(<=, long)
+    _DEC_COMP_OP_INT(<=, unsigned long)
+    _DEC_COMP_OP_INT(<=, long long)
+    _DEC_COMP_OP_INT(<=, unsigned long long)
+    _DEC_COMP_OP_INT(>, int)
+    _DEC_COMP_OP_INT(>, unsigned int)
+    _DEC_COMP_OP_INT(>, long)
+    _DEC_COMP_OP_INT(>, unsigned long)
+    _DEC_COMP_OP_INT(>, long long)
+    _DEC_COMP_OP_INT(>, unsigned long long)
+    _DEC_COMP_OP_INT(>=, int)
+    _DEC_COMP_OP_INT(>=, unsigned int)
+    _DEC_COMP_OP_INT(>=, long)
+    _DEC_COMP_OP_INT(>=, unsigned long)
+    _DEC_COMP_OP_INT(>=, long long)
+    _DEC_COMP_OP_INT(>=, unsigned long long)
+    #undef _DEC_COMP_OP_INT
+
+    #define _DEC_COMP_OP_DEC(_OP, _TYPE) \
+      inline bool operator _OP(_TYPE __lhs, decimal32 __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs.__get_dec_value(); \
+      } \
+      inline bool operator _OP(_TYPE __lhs, decimal64 __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs.__get_dec_value(); \
+      } \
+      inline bool operator _OP(_TYPE __lhs, decimal128 __rhs) { \
+        return __lhs.__get_dec_value() _OP __rhs.__get_dec_value(); \
+      }
+    _DEC_COMP_OP_DEC(==, decimal32)
+    _DEC_COMP_OP_DEC(==, decimal64)
+    _DEC_COMP_OP_DEC(==, decimal128)
+    _DEC_COMP_OP_DEC(!=, decimal32)
+    _DEC_COMP_OP_DEC(!=, decimal64)
+    _DEC_COMP_OP_DEC(!=, decimal128)
+    _DEC_COMP_OP_DEC(<, decimal32)
+    _DEC_COMP_OP_DEC(<, decimal64)
+    _DEC_COMP_OP_DEC(<, decimal128)
+    _DEC_COMP_OP_DEC(<=, decimal32)
+    _DEC_COMP_OP_DEC(<=, decimal64)
+    _DEC_COMP_OP_DEC(<=, decimal128)
+    _DEC_COMP_OP_DEC(>, decimal32)
+    _DEC_COMP_OP_DEC(>, decimal64)
+    _DEC_COMP_OP_DEC(>, decimal128)
+    _DEC_COMP_OP_DEC(>=, decimal32)
+    _DEC_COMP_OP_DEC(>=, decimal64)
+    _DEC_COMP_OP_DEC(>=, decimal128)
+    #undef _DEC_COMP_OP_DEC
+  }
+}
+
+extern "C" _Decimal32  scalbnd32  (_Decimal32  __x, int __n);
+extern "C" _Decimal64  scalbnd64  (_Decimal64  __x, int __n);
+extern "C" _Decimal128 scalbnd128 (_Decimal128 __x, int __n);
+extern "C" _Decimal32  __wrap___bid32_from_int64(long long);
+extern "C" _Decimal32  __wrap___bid32_from_uint64(unsigned long long);
+extern "C" _Decimal64  __wrap___bid64_from_int64(long long);
+extern "C" _Decimal64  __wrap___bid64_from_uint64(unsigned long long);
+extern "C" _Decimal128 __wrap___bid128_from_int64(long long);
+extern "C" _Decimal128 __wrap___bid128_from_uint64(unsigned long long);
+
+namespace std {
+  namespace decimal {
+    // 3.2.5 initialization from coefficient and exponent:
+    decimal32 make_decimal32(long long __coeff, int __exponent) {
+       return __wrap___bid32_from_int64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+    decimal32 make_decimal32(unsigned long long __coeff, int __exponent) {
+       return __wrap___bid32_from_uint64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+    decimal64 make_decimal64(long long __coeff, int __exponent) {
+       return __wrap___bid64_from_int64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+    decimal64 make_decimal64(unsigned long long __coeff, int __exponent) {
+       return __wrap___bid64_from_uint64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+    decimal128 make_decimal128(long long __coeff, int __exponent) {
+       return __wrap___bid128_from_int64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+    decimal128 make_decimal128(unsigned long long __coeff, int __exponent) {
+       return __wrap___bid128_from_uint64(__coeff) * scalbnd32(10.0DF, __exponent - 1);
+    }
+  }
+}
+
+#include <iosfwd>
+      
+namespace std {
+  namespace decimal {
+    // 3.2.10 Formatted input:
+    template <class _CharT, class _Traits>
+    std::basic_istream<_CharT, _Traits> &
+    operator>>(std::basic_istream<_CharT, _Traits> & __is, decimal32 & __d);
+   
+    template <class _CharT, class _Traits>
+    std::basic_istream<_CharT, _Traits> &
+    operator>>(std::basic_istream<_CharT, _Traits> & __is, decimal64 & __d);
+   
+    template <class _CharT, class _Traits>
+    std::basic_istream<_CharT, _Traits> &
+    operator>>(std::basic_istream<_CharT, _Traits> & __is, decimal128 & __d);
+   
+    // 3.2.11 Formatted output:
+    template <class _CharT, class _Traits>
+    std::basic_ostream<_CharT, _Traits> &
+    operator<<(std::basic_ostream<_CharT, _Traits> & __os, decimal32 & __d);
+   
+    template <class _CharT, class _Traits>
+    std::basic_ostream<_CharT, _Traits> &
+    operator<<(std::basic_ostream<_CharT, _Traits> & __os, decimal64 & __d);
+   
+    template <class _CharT, class _Traits>
+    std::basic_ostream<_CharT, _Traits> &
+    operator<<(std::basic_ostream<_CharT, _Traits> & __os, decimal128 & __d);
+  }
+}
+
+#endif /* _DECIMAL_ */

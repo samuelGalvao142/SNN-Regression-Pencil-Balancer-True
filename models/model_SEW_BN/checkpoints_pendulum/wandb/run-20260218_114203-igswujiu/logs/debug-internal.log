@@ -1,0 +1,12 @@
+{"time":"2026-02-18T11:42:05.7008909-05:00","level":"INFO","msg":"stream: starting","core version":"0.24.2"}
+{"time":"2026-02-18T11:42:06.0478583-05:00","level":"INFO","msg":"stream: created new stream","id":"igswujiu"}
+{"time":"2026-02-18T11:42:06.048372-05:00","level":"INFO","msg":"handler: started","stream_id":"igswujiu"}
+{"time":"2026-02-18T11:42:06.0566702-05:00","level":"INFO","msg":"sender: started","stream_id":"igswujiu"}
+{"time":"2026-02-18T11:42:06.0566702-05:00","level":"INFO","msg":"writer: started","stream_id":"igswujiu"}
+{"time":"2026-02-18T11:42:06.0566702-05:00","level":"INFO","msg":"stream: started","id":"igswujiu"}
+{"time":"2026-02-18T12:58:02.9674433-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-02-18T12:58:03.1047614-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-02-18T12:58:03.1125967-05:00","level":"INFO","msg":"stream: closing","id":"igswujiu"}
+{"time":"2026-02-18T12:58:03.1125967-05:00","level":"INFO","msg":"handler: closed","stream_id":"igswujiu"}
+{"time":"2026-02-18T12:58:03.1136162-05:00","level":"INFO","msg":"sender: closed","stream_id":"igswujiu"}
+{"time":"2026-02-18T12:58:03.1136162-05:00","level":"INFO","msg":"stream: closed","id":"igswujiu"}

@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: intel-pti
+Version: 0.16.0
+Summary: Intel® Profiling Tools Interface
+Home-page: https://software.intel.com/en-us/articles/empowering-science-with-high-performance-python
+Author: Intel Corporation
+Author-email: scripting@intel.com
+License: The MIT License
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: System Administrators
+Classifier: Intended Audience :: Other Audience
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: Other/Proprietary License
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+Framework for developing profiling tools for applications built on top of oneAPI and running on Intel XPUs.
+

@@ -1,0 +1,103 @@
+_wandb:
+    value:
+        cli_version: 0.24.2
+        e:
+            c79f5vzcgn8n8obp4cme22atie06dys2:
+                codePath: c:\Users\sgalvao\snn_regression\snn_env\SNN-regression-main\notebooks\SNN_Regression_pendulum.ipynb
+                codePathLocal: SNN_Regression_pendulum.ipynb
+                cpu_count: 20
+                cpu_count_logical: 20
+                cudaVersion: "13.1"
+                disk:
+                    /:
+                        total: "1013309239296"
+                        used: "414871007232"
+                email: salim.samuel21@gmail.com
+                executable: c:\Users\sgalvao\snn_regression\snn_env\Scripts\python.exe
+                gpu: NVIDIA GeForce RTX 5070
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Blackwell
+                      cudaCores: 6144
+                      memoryTotal: "12820938752"
+                      name: NVIDIA GeForce RTX 5070
+                      uuid: GPU-d1255119-440b-9379-bcb0-3e91b06738da
+                host: x-armsb191pc02
+                memory:
+                    total: "33775415296"
+                os: Windows-10-10.0.26100-SP0
+                program: c:\Users\sgalvao\snn_regression\snn_env\SNN-regression-main\notebooks\SNN_Regression_pendulum.ipynb
+                python: CPython 3.11.9
+                root: C:\users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum
+                startedAt: "2026-02-17T16:38:45.085524Z"
+                writerId: c79f5vzcgn8n8obp4cme22atie06dys2
+        m: []
+        python_version: 3.11.9
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 1
+                - 2
+                - 13
+                - 16
+                - 62
+            "4": 3.11.9
+            "5": 0.24.2
+            "8":
+                - 1
+                - 3
+            "12": 0.24.2
+            "13": windows-amd64
+K:
+    value: 10
+Plif:
+    value: false
+batch_size:
+    value: 4
+block_type:
+    value: SEW
+device:
+    value: cuda
+early_stop_patience:
+    value: 10
+final_tau:
+    value: 20
+hidden:
+    value: 256
+init_scale:
+    value: 5
+learnable_norm:
+    value: true
+learning_rate:
+    value: 0.0001
+min_lr:
+    value: 1e-06
+model_name:
+    value: SNN_Net
+norm_type:
+    value: BN
+num_epochs:
+    value: 30
+optimizer:
+    value: Adam
+reset_type:
+    value: soft
+scheduler:
+    value: ReduceLROnPlateau
+scheduler_factor:
+    value: 0.5
+scheduler_patience:
+    value: 1
+sequence_length:
+    value: 2000
+surrogate_function:
+    value: ATan
+tau:
+    value: 2
+transient:
+    value: 0
+weight_decay:
+    value: 0

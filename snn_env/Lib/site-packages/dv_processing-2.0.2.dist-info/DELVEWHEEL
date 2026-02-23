@@ -1,0 +1,2 @@
+Version: 1.11.0
+Arguments: ['C:\\Users\\inivation\\AppData\\Local\\Temp\\cibw-run-f1_7j1j8\\cp311-win_amd64\\build\\venv\\Scripts\\delvewheel', 'repair', '-w', 'C:\\Users\\inivation\\AppData\\Local\\Temp\\cibw-run-f1_7j1j8\\cp311-win_amd64\\repaired_wheel', 'C:\\Users\\inivation\\AppData\\Local\\Temp\\cibw-run-f1_7j1j8\\cp311-win_amd64\\built_wheel\\dv_processing-2.0.2-cp311-cp311-win_amd64.whl']
