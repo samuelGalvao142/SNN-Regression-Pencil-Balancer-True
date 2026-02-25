@@ -1,0 +1,29 @@
+# Event camera recordings
+*.aedat4
+recordings/
+
+# PyTorch models
+*.pt
+*.pth
+
+# Numpy data
+*.npy
+*.npz
+
+# Exported models
+*.onnx
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+snn_env/
+venv/
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
