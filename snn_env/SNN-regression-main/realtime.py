@@ -159,7 +159,7 @@ while capture.isRunning():
     with torch.no_grad():
         output = model(frame)
 
-    output_deg = output.item() * 180 / PI
+    output_deg = output.item() * 180
 
     latency = (time.perf_counter() - start) * 1000
 

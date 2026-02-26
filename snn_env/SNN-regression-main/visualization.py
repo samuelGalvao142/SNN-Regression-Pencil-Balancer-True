@@ -35,7 +35,12 @@ if capture.isTriggerStreamAvailable():
 
 while capture.isRunning():
     frame = capture.getNextFrame()
-    events = capture.getNextEventBatch()
+    events = None
+    while True:
+        batch = capture.getNextEventBatch()
+        if batch is None:
+            break
+        events = batch
 
     if frame is not None:
         print(f"Received a frame at time [{frame.timestamp}]")
