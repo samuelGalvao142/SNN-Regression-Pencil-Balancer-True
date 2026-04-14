@@ -6,28 +6,103 @@ import matplotlib.pyplot as plt
 def normalize_targets(targets, experiment_type):
     """
     Normalize targets to [0, 1] range based on experiment type.
+
+    Supports numpy arrays and torch tensors. For multi-output targets
+    of shape [..., 4] we treat channels 0 and 2 as angles and channels
+    1 and 3 as horizontal positions (pixels). Positions are normalized
+    by image width (default 346).
     """
-    if experiment_type.lower() == "pendulum":
-        return (targets + np.pi)/(2*np.pi)
-    elif experiment_type.lower() == "imu":
-        return -targets / np.pi
+    import torch
+
+    WIDTH = 346.0
+
+    def _norm_angle(x):
+        return (x + np.pi) / (2 * np.pi)
+
+    def _norm_angle_t(x):
+        return (x + torch.pi) / (2 * torch.pi)
+
+    if isinstance(targets, torch.Tensor):
+        if targets.dim() >= 1 and targets.size(-1) == 4:
+            out = targets.clone()
+            out[..., 0] = _norm_angle_t(out[..., 0])
+            out[..., 2] = _norm_angle_t(out[..., 2])
+            out[..., 1] = out[..., 1] / WIDTH
+            out[..., 3] = out[..., 3] / WIDTH
+            return out
+        else:
+            if experiment_type.lower() == "pendulum":
+                return _norm_angle_t(targets)
+            elif experiment_type.lower() == "imu":
+                return -targets / torch.pi
+            else:
+                raise ValueError(f"Unknown experiment type: {experiment_type}")
     else:
-        raise ValueError(f"Unknown experiment type: {experiment_type}")
+        # numpy
+        if getattr(targets, 'ndim', 1) and getattr(targets, 'shape', ()) and len(getattr(targets, 'shape', [])) and getattr(targets, 'shape')[-1] == 4:
+            out = targets.copy()
+            out[..., 0] = _norm_angle(out[..., 0])
+            out[..., 2] = _norm_angle(out[..., 2])
+            out[..., 1] = out[..., 1] / WIDTH
+            out[..., 3] = out[..., 3] / WIDTH
+            return out
+        else:
+            if experiment_type.lower() == "pendulum":
+                return (targets + np.pi) / (2 * np.pi)
+            elif experiment_type.lower() == "imu":
+                return -targets / np.pi
+            else:
+                raise ValueError(f"Unknown experiment type: {experiment_type}")
 
 
 def denormalize_targets(normalized_targets, experiment_type):
     """
-    Convert normalized targets back to degrees for visualization.
+    Convert normalized targets back to physical units for visualization.
+
+    For pendulum: angles are returned in degrees. For multi-output (4 channels),
+    returns array with angle channels converted to degrees and position channels
+    converted back to pixels using image width 346.
     """
-    if experiment_type.lower() == "pendulum":
-        # Pendulum: [0, 1] normalized -> [-180, 180] degrees
-        return (normalized_targets * 360) - 180
-    elif experiment_type.lower() == "imu":
-        # IMU: [0, 1] normalized -> [0, -pi] radians -> [0, -180] degrees
-        return -normalized_targets * 180
+    WIDTH = 346.0
+    import torch
+
+    def _denorm_angle_np(x):
+        return (x * 360.0) - 180.0
+
+    def _denorm_angle_t(x):
+        return (x * 360.0) - 180.0
+
+    if isinstance(normalized_targets, torch.Tensor):
+        if normalized_targets.dim() >= 1 and normalized_targets.size(-1) == 4:
+            out = normalized_targets.clone()
+            out[..., 0] = _denorm_angle_t(out[..., 0])
+            out[..., 2] = _denorm_angle_t(out[..., 2])
+            out[..., 1] = out[..., 1] * WIDTH
+            out[..., 3] = out[..., 3] * WIDTH
+            return out
+        else:
+            if experiment_type.lower() == "pendulum":
+                return _denorm_angle_t(normalized_targets)
+            elif experiment_type.lower() == "imu":
+                return -normalized_targets * 180.0
+            else:
+                return _denorm_angle_t(normalized_targets)
     else:
-        # Default to pendulum behavior
-        return (normalized_targets * 360) - 180
+        # numpy
+        if getattr(normalized_targets, 'ndim', 1) and getattr(normalized_targets, 'shape', ()) and len(getattr(normalized_targets, 'shape', [])) and getattr(normalized_targets, 'shape')[-1] == 4:
+            out = normalized_targets.copy()
+            out[..., 0] = _denorm_angle_np(out[..., 0])
+            out[..., 2] = _denorm_angle_np(out[..., 2])
+            out[..., 1] = out[..., 1] * WIDTH
+            out[..., 3] = out[..., 3] * WIDTH
+            return out
+        else:
+            if experiment_type.lower() == "pendulum":
+                return (normalized_targets * 360) - 180
+            elif experiment_type.lower() == "imu":
+                return -normalized_targets * 180
+            else:
+                return (normalized_targets * 360) - 180
 
 
 def visualize_sequence_from_trainloader(trainloader, n_sequences=5, playback_fps=10, scale=1):
@@ -46,7 +121,7 @@ def visualize_sequence_from_trainloader(trainloader, n_sequences=5, playback_fps
             break
             
         # frames_batch: [T, B, C, H, W]
-        # labels_batch: [T, B]
+        # labels_batch: [T, B] or [T, B, 4]
         T, B, C, H, W = frames_batch.shape
         
         print(f"\n=== Sequence {seq_idx+1}/{n_sequences} ===")
@@ -57,19 +132,22 @@ def visualize_sequence_from_trainloader(trainloader, n_sequences=5, playback_fps
         
         for t in range(T):
             # Extract frame at time t for the first batch item
-            # frame: [C, H, W] where C=2 (ON/OFF polarities)
-            frame = frames_batch[t, batch_item].cpu().numpy()  # [2, H, W]
-            angle = labels_batch[t, batch_item].item()
+            # frame: [C, H, W] where C==2 (single camera) or C==4 (two cameras concatenated)
+            frame = frames_batch[t, batch_item].cpu().numpy()
+            # Extract angle from labels: if multi-output, angle is channel 0
+            if labels_batch.ndim == 3 and labels_batch.shape[-1] >= 1:
+                angle = labels_batch[t, batch_item, 0].item()
+            else:
+                angle = labels_batch[t, batch_item].item()
             
             # Create RGB visualization
             # Channel 0 = ON events (positive), Channel 1 = OFF events (negative)
             events_img = np.ones((H, W, 3), dtype=np.uint8) * 255
             
-            # ON events in dark blue
+            # ON/OFF for camera 1 (first two channels)
             on_events = frame[0] > 0
             events_img[on_events] = [0, 0, 200]
-            
-            # OFF events in dark red
+
             off_events = frame[1] > 0
             events_img[off_events] = [200, 0, 0]
             
@@ -120,45 +198,72 @@ def plot_prediction(results, window_start=0, window_end=-1, experiment_type="pen
         experiment_type: Type of experiment ("pendulum" or "IMU") for proper denormalization
     """
     
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 8))
-    
-    # Denormalize predictions and targets based on experiment type
-    output_degrees = denormalize_targets(results['test_output'][window_start:window_end], experiment_type)
-    target_degrees = denormalize_targets(results['test_target'][window_start:window_end], experiment_type)
-    
-    # Subplot 1: Model output vs target
-    ax1.plot(output_degrees, label="Model Output", alpha=0.8, linewidth=1.5)
-    ax1.plot(target_degrees, label="Target", alpha=0.8, linewidth=1.5)
-    ax1.set_xlabel("Frame")
-    ax1.set_ylabel("Angle (degrees)")
-    ax1.set_title("Model Output vs Target (Continuous Evaluation)")
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    # If outputs are multi-dimensional (N,4), plot 4 subplots: angle/x for each camera
+    out = results.get('test_output')
+    targ = results.get('test_target')
 
-    # Subplot 2: Absolute error
-    test_error = np.abs(output_degrees - target_degrees)
-    ax2.plot(test_error, color='orange', linewidth=1)
-    ax2.set_xlabel("Frame")
-    ax2.set_ylabel("Absolute Error (degrees)")
-    ax2.set_title("Absolute Error over Time")
-    ax2.grid(True, alpha=0.3)
+    if out is None or targ is None:
+        print("No prediction or target data available in results.")
+        return
 
-    plt.tight_layout()
-    plt.show()
-    
-    # Print error statistics
-    output_full = denormalize_targets(results['test_output'], experiment_type)
-    target_full = denormalize_targets(results['test_target'], experiment_type)
-    
-    print(f"\nError statistics (Full sequence):")
-    print(f"  Mean error: {np.mean(np.abs(output_full - target_full)):.3f}°")
-    print(f"  Std error: {np.std(np.abs(output_full - target_full)):.3f}°")
-    print(f"  Max error: {np.max(np.abs(output_full - target_full)):.3f}°")
+    # Denormalize (handles both single-output and 4-output cases)
+    out_dn = denormalize_targets(out, experiment_type)
+    targ_dn = denormalize_targets(targ, experiment_type)
 
-    print(f"\nError statistics (Window [{window_start}:{window_end}]):")
-    print(f"  Mean error: {np.mean(np.abs(output_degrees - target_degrees)):.3f}°")
-    print(f"  Std error: {np.std(np.abs(output_degrees - target_degrees)):.3f}°")
-    print(f"  Max error: {np.max(np.abs(output_degrees - target_degrees)):.3f}°")
+    # Ensure slicing is safe
+    out_win = out_dn[window_start:window_end]
+    targ_win = targ_dn[window_start:window_end]
+
+    if out_win.ndim == 1 or (out_win.ndim == 2 and out_win.shape[1] == 1):
+        # Single-output legacy plotting
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 8))
+        ax1.plot(out_win, label="Model Output", alpha=0.8, linewidth=1.5)
+        ax1.plot(targ_win, label="Target", alpha=0.8, linewidth=1.5)
+        ax1.set_xlabel("Frame")
+        ax1.set_ylabel("Angle (degrees)")
+        ax1.set_title("Model Output vs Target (Continuous Evaluation)")
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        test_error = np.abs(out_win - targ_win)
+        ax2.plot(test_error, color='orange', linewidth=1)
+        ax2.set_xlabel("Frame")
+        ax2.set_ylabel("Absolute Error (degrees)")
+        ax2.set_title("Absolute Error over Time")
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.show()
+    else:
+        # Multi-output: expect shape [N,4]
+        if out_win.ndim == 1:
+            out_win = out_win.reshape(-1, 1)
+            targ_win = targ_win.reshape(-1, 1)
+
+        N = out_win.shape[0]
+        fig, axes = plt.subplots(2, 2, figsize=(14, 8))
+        axes = axes.flatten()
+
+        labels = ["Angle Cam1 (deg)", "X Cam1 (px)", "Angle Cam2 (deg)", "X Cam2 (px)"]
+
+        for i in range(4):
+            axes[i].plot(out_win[:, i], label='Pred', alpha=0.8)
+            axes[i].plot(targ_win[:, i], label='Target', alpha=0.8)
+            axes[i].set_title(labels[i])
+            axes[i].set_xlabel('Frame')
+            axes[i].legend()
+            axes[i].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Print per-channel error statistics
+        abs_err = np.abs(out_dn - targ_dn)
+        for i, name in enumerate(labels):
+            mean_err = np.mean(abs_err[:, i])
+            std_err = np.std(abs_err[:, i])
+            max_err = np.max(abs_err[:, i])
+            print(f"{name}: Mean error={mean_err:.3f}, Std={std_err:.3f}, Max={max_err:.3f}")
 
 
 def plot_spike_activity(results, window_start=0, window_end=-1):

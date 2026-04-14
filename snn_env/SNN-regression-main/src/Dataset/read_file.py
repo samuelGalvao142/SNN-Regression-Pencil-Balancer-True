@@ -75,21 +75,107 @@ def read_pendulum_file(FILE_PATH, CSV_PATH, time_window=30000, START_FRAME=0, EN
     print(f"\n{'='*70}")
     print("Starting data loading for Pendulum experiment...")
     print(f"{'='*70}")
-    
-    # Load event data and CSV measurements
-    events = tonic.io.read_aedat4(FILE_PATH)
+
+    # Load CSV measurements
     df = pd.read_csv(CSV_PATH)
-    
-    # Prepare data for auxiliary function
+
+    # Detect timestamp and angle columns
     timestamps = df['timestamp_us'].values
-    data_labels = df['theta_rad'].values
-    
-    # Use auxiliary function for alignment and slicing
-    events_per_frame, labels = _align_and_slice_events(
-        events, timestamps, data_labels, time_window, START_FRAME, END_FRAME
-    )
-    
-    return events_per_frame, labels
+    if 'theta_rad' in df.columns:
+        angle = df['theta_rad'].values
+    elif 'angle_rad' in df.columns:
+        angle = df['angle_rad'].values
+    else:
+        raise ValueError('No angle column found in CSV (expected theta_rad)')
+
+    # Attempt to find horizontal position columns for both cameras
+    col_candidates_cam1 = ['x_px_cam1', 'x_cam1', 'x_px1', 'x1', 'x_pos_cam1', 'x_px']
+    col_candidates_cam2 = ['x_px_cam2', 'x_cam2', 'x_px2', 'x2', 'x_pos_cam2']
+
+    pos1 = None
+    pos2 = None
+    for c in col_candidates_cam1:
+        if c in df.columns:
+            pos1 = df[c].values
+            break
+    for c in col_candidates_cam2:
+        if c in df.columns:
+            pos2 = df[c].values
+            break
+
+    # If only a single position column exists (e.g., 'x_px'), replicate for both cameras
+    if pos1 is None and 'x_px' in df.columns:
+        pos1 = df['x_px'].values
+    if pos2 is None and 'x_px' in df.columns:
+        pos2 = df['x_px'].values
+
+    # Fallback to zeros if positions not present
+    if pos1 is None:
+        pos1 = np.zeros_like(angle)
+    if pos2 is None:
+        pos2 = np.zeros_like(angle)
+
+    # Load event data: support single path or list/tuple of two paths
+    if isinstance(FILE_PATH, (list, tuple)) and len(FILE_PATH) == 2:
+        events1 = tonic.io.read_aedat4(FILE_PATH[0])
+        events2 = tonic.io.read_aedat4(FILE_PATH[1])
+
+        # Determine overlapping time range
+        start_time = max(timestamps[0], events1['t'][0], events2['t'][0])
+        end_time = min(timestamps[-1], events1['t'][-1], events2['t'][-1])
+
+        # Slice both event streams into frames
+        frames1 = tonic.slicers.slice_events_by_time(events1, time_window=time_window, start_time=start_time, end_time=end_time)
+        frames2 = tonic.slicers.slice_events_by_time(events2, time_window=time_window, start_time=start_time, end_time=end_time)
+
+        # Interpolate labels at window end timestamps (based on start_time)
+        ev_timestamps = start_time + np.arange(1, len(frames1) + 1) * time_window
+        interp_angle = interp1d(timestamps, angle, fill_value='extrapolate')
+        interp_pos1 = interp1d(timestamps, pos1, fill_value='extrapolate')
+        interp_pos2 = interp1d(timestamps, pos2, fill_value='extrapolate')
+
+        interpolated_angle = interp_angle(ev_timestamps)
+        interpolated_pos1 = interp_pos1(ev_timestamps)
+        interpolated_pos2 = interp_pos2(ev_timestamps)
+
+        # Zip frames into pairs and build labels as [angle, x_pos, angle, x_pos]
+        min_len = min(len(frames1), len(frames2), len(interpolated_angle))
+        frames_paired = [(frames1[i], frames2[i]) for i in range(min_len)]
+        labels = np.stack([
+            interpolated_angle[:min_len],
+            interpolated_pos1[:min_len],
+            interpolated_angle[:min_len],
+            interpolated_pos2[:min_len]
+        ], axis=1)
+
+        # Slice requested frame range
+        frames_paired = frames_paired[START_FRAME:END_FRAME]
+        labels = labels[START_FRAME:END_FRAME]
+
+        print(f"Labels assigned successfully (two cameras)!")
+        print(f"Total grouped event pairs: {len(frames_paired)}")
+
+        return frames_paired, labels
+
+    else:
+        # Single camera (legacy behavior)
+        events = tonic.io.read_aedat4(FILE_PATH)
+        events_per_frame, interpolated_angle = _align_and_slice_events(events, timestamps, angle, time_window, START_FRAME, END_FRAME)
+
+        # Interpolate positions for single-camera case
+        interp_pos = interp1d(timestamps, pos1, fill_value='extrapolate')
+        ev_timestamps = timestamps[0] + np.arange(1, len(events_per_frame) + 1) * time_window
+        interpolated_pos = interp_pos(ev_timestamps)
+
+        # Build labels as [angle, x_pos, angle, x_pos] duplicating angle for both camera slots
+        labels = np.stack([
+            interpolated_angle,
+            interpolated_pos,
+            interpolated_angle,
+            interpolated_pos
+        ], axis=1)
+
+        return events_per_frame, labels
 
 def read_IMU_file(FILE_PATH, time_window=10000, START_FRAME=0, END_FRAME=-1):
     """Read IMU event data and compute orientation (pitch/roll) using Madgwick filter."""

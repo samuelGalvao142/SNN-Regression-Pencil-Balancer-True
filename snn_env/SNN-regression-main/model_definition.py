@@ -67,7 +67,7 @@ class SNN_Net(nn.Module):
         # Build sequential convolution pipeline
         # ====================================================================
         conv_blocks = []
-        in_channels = 2  # Start with 2 channels (ON/OFF events)
+        in_channels = 4  # Start with 4 channels (ON/OFF per camera × 2 cameras)
 
         for cfg in layer_list:
             channels = cfg["channels"]
@@ -123,7 +123,7 @@ class SNN_Net(nn.Module):
         # ====================================================================
         # Run a dummy forward pass to determine the output size
         with torch.no_grad():
-            dummy = torch.zeros(1, 2, 346, 260)  # DAVIS346 input size
+            dummy = torch.zeros(1, 4, 346, 260)  # 4-channel input (two cameras)
             for m in self.conv:
                 dummy = m(dummy)
             flat_dim = dummy.numel()
@@ -138,8 +138,8 @@ class SNN_Net(nn.Module):
         self.lif_hidden = (neuron.ParametricLIFNode(init_tau=tau, v_reset=v_reset, surrogate_function=surrogate_function, detach_reset=True) 
                           if Plif else neuron.LIFNode(tau=tau, v_reset=v_reset, surrogate_function=surrogate_function, detach_reset=True))
         
-        # Output layer
-        self.fc_out = nn.Linear(hidden, 1, bias=False)
+        # Output layer (predict 4 continuous values: [angle_cam1, x_cam1, angle_cam2, x_cam2])
+        self.fc_out = nn.Linear(hidden, 4, bias=False)
         
         # Output LIF with INFINITE threshold (for regression)
         # This neuron never spikes - we read its membrane potential as the prediction

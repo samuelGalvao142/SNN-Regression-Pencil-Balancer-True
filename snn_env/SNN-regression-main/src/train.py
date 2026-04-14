@@ -49,7 +49,8 @@ def validate(model, val_loader, CONFIG):
             functional.reset_net(model)
             
             if true_value_initialization:
-                model.lif_out.v = targets[0].unsqueeze(-1)  # Initialize output neuron state
+                # targets[0] shape: [B, 4] -> set membrane potentials directly
+                model.lif_out.v = targets[0]
 
             val_mem_list = []
 
@@ -61,9 +62,8 @@ def validate(model, val_loader, CONFIG):
                 mem_out = model(data[step])  # Forward pass: [B, 1]
                 val_mem_list.append(mem_out)
 
-            # Stack all predictions: [T', B, 1] → [T', B]
+            # Stack all predictions: [T', B, 4]
             batch_predictions = torch.stack(val_mem_list, dim=0)
-            batch_predictions = batch_predictions.squeeze(-1)
 
             # Align targets with prediction start when init is used
             targets_aligned = targets[start_step:]
@@ -236,7 +236,7 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
             functional.reset_net(model)
             
             if true_value_initialization:
-                model.lif_out.v = targets[0].unsqueeze(-1)  # Initialize output neuron state
+                model.lif_out.v = targets[0]
             
             step_trunc = 0
             K_count = 0
@@ -264,7 +264,8 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                         
                     end_idx = start_idx + K    
                     target_slice = targets[start_idx:end_idx]
-                    loss = loss_fn(mem_rec_trunc.squeeze(-1), target_slice)
+                    # mem_rec_trunc: [K, B, 4], target_slice: [K, B, 4]
+                    loss = loss_fn(mem_rec_trunc, target_slice)
 
                     # Backward and optimize
                     optimizer.zero_grad()
@@ -305,7 +306,7 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                         end_idx = K_count * K + num_steps % K
                         
                     target_slice = targets[int(start_idx):int(end_idx)]
-                    loss = loss_fn(mem_rec_trunc.squeeze(-1), target_slice)
+                    loss = loss_fn(mem_rec_trunc, target_slice)
 
                     optimizer.zero_grad()
                     loss.backward()

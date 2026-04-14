@@ -81,11 +81,12 @@ def create_dataloaders(input_data, labels, test_ratio=0.05, val_ratio=0.07, SEQ_
     # ============================================================================
 
     # Training and validation use fixed-length sequences
-    trainset = SequenceDataset(cached_trainset, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
-    valset = SequenceDataset(val_dataset, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
+    # For two cameras we expect 4 channels (ON/OFF per camera)
+    trainset = SequenceDataset(cached_trainset, seq_length=SEQ_LENGTH, expected_shape=(4, H, W))
+    valset = SequenceDataset(val_dataset, seq_length=SEQ_LENGTH, expected_shape=(4, H, W))
 
     # Test uses continuous sequence
-    testset = ContinuousDataset(test_dataset, expected_shape=(2, H, W))
+    testset = ContinuousDataset(test_dataset, expected_shape=(4, H, W))
 
     # ============================================================================
     # Create DataLoaders

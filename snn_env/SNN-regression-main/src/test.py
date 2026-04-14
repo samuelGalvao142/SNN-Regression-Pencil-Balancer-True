@@ -139,7 +139,8 @@ def test(model, testloader, CONFIG, monitor_mode="both", loss_fn=None):
             functional.reset_net(model)
             
             if true_value_initialization:
-                model.lif_out.v = targets[0].unsqueeze(-1)  # Initialize output neuron state
+                # targets[0] shape: [B, 4]
+                model.lif_out.v = targets[0]
             
             test_mem_list = []
             
@@ -148,7 +149,7 @@ def test(model, testloader, CONFIG, monitor_mode="both", loss_fn=None):
             for step in range(start_step, num_steps):
                 
                 # Forward pass
-                mem_out = model(data[step])  # [B, 1]
+                mem_out = model(data[step])  # [B, 4]
                 test_mem_list.append(mem_out)
                 
                 # Initialize tracking lists on the first timestep
@@ -202,12 +203,11 @@ def test(model, testloader, CONFIG, monitor_mode="both", loss_fn=None):
                         norm_activity_over_time[layer_name]['input_range'].append(input_range)
                         norm_activity_over_time[layer_name]['output_range'].append(output_range)
             
-            # Stack all predictions for this batch
-            batch_predictions = torch.stack(test_mem_list, dim=0)  # [T, B, 1]
-            batch_predictions = batch_predictions.squeeze(-1)  # [T, B]
+            # Stack all predictions for this batch -> [T, B, 4]
+            batch_predictions = torch.stack(test_mem_list, dim=0)
 
             # Align targets when using true value initialization
-            targets_aligned = targets[start_step:]  # [T, B]
+            targets_aligned = targets[start_step:]  # [T, B, 4]
 
             # Calculate metrics for this batch over full aligned sequence
             batch_loss = loss_fn(batch_predictions, targets_aligned)
@@ -220,8 +220,8 @@ def test(model, testloader, CONFIG, monitor_mode="both", loss_fn=None):
             pbar_test.set_postfix({'loss': f'{batch_loss.item():.6f}'})
             
             # Store for visualization (flatten batch dimension) over full aligned sequence
-            all_predictions.append(batch_predictions.detach().cpu().numpy())
-            all_targets.append(targets_aligned.detach().cpu().numpy())
+            all_predictions.append(batch_predictions.detach().cpu().numpy())  # [T, B, 4]
+            all_targets.append(targets_aligned.detach().cpu().numpy())      # [T, B, 4]
         
         pbar_test.close()
         
@@ -229,9 +229,15 @@ def test(model, testloader, CONFIG, monitor_mode="both", loss_fn=None):
         avg_test_loss = test_loss_total / iter_count
         avg_test_rel_err = test_rel_err_total / iter_count
         
-        # Concatenate all predictions (flatten across batches and batch dimension)
-        test_mem_continuous = np.concatenate([p.reshape(-1) for p in all_predictions])
-        test_target_continuous = np.concatenate([t.reshape(-1) for t in all_targets])
+        # Concatenate all predictions into shape [N_frames, 4]
+        if len(all_predictions) > 0:
+            preds_list = [p.reshape(-1, p.shape[2]) for p in all_predictions]
+            targs_list = [t.reshape(-1, t.shape[2]) for t in all_targets]
+            test_mem_continuous = np.concatenate(preds_list, axis=0)
+            test_target_continuous = np.concatenate(targs_list, axis=0)
+        else:
+            test_mem_continuous = np.array([])
+            test_target_continuous = np.array([])
     
     # Disable monitoring after evaluation
     disable_monitoring(model, monitor_mode)

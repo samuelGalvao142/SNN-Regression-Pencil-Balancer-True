@@ -22,10 +22,34 @@ class RotatingBarDataset(Dataset):
     def __getitem__(self, idx):
         events = self.sliced_events[idx]
         target = self.labels[idx]
-        
+
+        # Support two-camera input: if events is a tuple/list of two event streams,
+        # transform each separately and concatenate channels -> [4, H, W]
         if self.transform:
-            events = self.transform(events)
-            
+            if isinstance(events, (list, tuple)) and len(events) == 2:
+                ev1 = self.transform(events[0])  # [1, 2, H, W]
+                ev2 = self.transform(events[1])  # [1, 2, H, W]
+
+                # Remove event bin dim and ensure tensor/ndarray
+                try:
+                    ev1 = ev1.squeeze(0)
+                    ev2 = ev2.squeeze(0)
+                except Exception:
+                    pass
+
+                # If numpy, convert to torch later in SequenceDataset; here keep as numpy/ndarray
+                # Concatenate channels: [2,H,W] + [2,H,W] -> [4,H,W]
+                try:
+                    import numpy as _np
+                    if isinstance(ev1, _np.ndarray) and isinstance(ev2, _np.ndarray):
+                        events = _np.concatenate([ev1, ev2], axis=0)
+                    else:
+                        events = torch.cat([ev1, ev2], dim=0)
+                except Exception:
+                    events = torch.cat([ev1, ev2], dim=0)
+            else:
+                events = self.transform(events)
+
         return events, target
 
 
