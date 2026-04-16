@@ -21,13 +21,13 @@
 import torch
 import time
 import math
-import serial
+#import serial
 import numpy as np
 import dv_processing as dv
 from spikingjelly.activation_based import functional
 from model_definition import SNN_Net, CONFIG
 
-out_port = serial.Serial('COM3', 115200)
+#out_port = serial.Serial('COM3', 115200)
 PI = math.pi
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,9 +41,8 @@ xNetwork = SNN_Net(
     init_scale=CONFIG["init_scale"]
 )
 
-checkpoint = torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\checkpoint_best.pth", map_location=DEVICE)
-xNetwork.load_state_dict(torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth"))
-
+x_state = torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth", map_location=DEVICE)
+xNetwork.load_state_dict(x_state)
 xNetwork.to(DEVICE)
 xNetwork.eval()
 
@@ -58,8 +57,8 @@ yNetwork = SNN_Net(
     init_scale=CONFIG["init_scale"]
 )
 
-yNetwork.load_state_dict(torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth"))
-
+y_state = torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth", map_location=DEVICE)
+yNetwork.load_state_dict(y_state)
 yNetwork.to(DEVICE)
 yNetwork.eval()
 
@@ -135,7 +134,7 @@ except KeyboardInterrupt:
 cameras = dv.io.camera.discover()
 
 xCapture = dv.io.camera.open(cameras[0])
-yCapture = dv.io.camera.open(cameras[1])
+yCapture = dv.io.camera.open(cameras[0])
 
 xCapture.setEventsRunning(True)
 xCapture.setFramesRunning(True)
@@ -210,5 +209,5 @@ while xCapture.isRunning() and yCapture.isRunning():
 
     print(f"x Axis Prediction: {x_output.item():.4f} rad | y Axis Prediction: {y_output.item():.4f} rad | Latency: {latency:.2f} ms")
 
-    out_port.write(f"{x_output_deg}\n".encode())
-    out_port.write(f"{y_output_deg}\n".encode())
+    #out_port.write(f"{x_output_deg}\n".encode())
+    #out_port.write(f"{y_output_deg}\n".encode())
