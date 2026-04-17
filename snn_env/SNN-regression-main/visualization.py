@@ -6,7 +6,7 @@
 # https://github.com/Geronimo9177/snn-event-regression
 # Most recent access: Feb 17, 2026
 # =============================================================================
-# Thi is a demo for the 2026 Lab Tour
+# This is a demo for the 2026 Lab Tour
 # =============================================================================
 
 import dv_processing as dv
