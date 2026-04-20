@@ -139,7 +139,7 @@ class SNN_Net(nn.Module):
                           if Plif else neuron.LIFNode(tau=tau, v_reset=v_reset, surrogate_function=surrogate_function, detach_reset=True))
         
         # Output layer
-        self.fc_out = nn.Linear(hidden, 1, bias=False)
+        self.fc_out = nn.Linear(hidden, 2, bias=False) # Test for 2 outputs
         
         # Output LIF with INFINITE threshold (for regression)
         # This neuron never spikes - we read its membrane potential as the prediction
