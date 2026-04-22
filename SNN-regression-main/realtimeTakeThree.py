@@ -25,12 +25,18 @@ import serial
 import cv2 as cv
 import numpy as np
 import dv_processing as dv
+from pathlib import Path
 from spikingjelly.activation_based import functional
 from model_definition import SNN_Net, CONFIG
 
 PI = math.pi
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WEIGHTS_PATH = PROJECT_ROOT / "models" / f"model_{CONFIG['block_type']}_{CONFIG['norm_type']}" / "checkpoints_pencil" / "best_model_weights.pth"
+
+if not WEIGHTS_PATH.exists():
+    raise FileNotFoundError(f"Pencil model weights not found at: {WEIGHTS_PATH}")
 
 xNetwork = SNN_Net(
     tau=CONFIG["tau"],
@@ -41,7 +47,7 @@ xNetwork = SNN_Net(
     init_scale=CONFIG["init_scale"]
 )
 
-x_state = torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth", map_location=DEVICE)
+x_state = torch.load(WEIGHTS_PATH, map_location=DEVICE)
 xNetwork.load_state_dict(x_state)
 xNetwork.to(DEVICE)
 xNetwork.eval()
@@ -55,13 +61,26 @@ yNetwork = SNN_Net(
     init_scale=CONFIG["init_scale"]
 )
 
-y_state = torch.load(r"C:\Users\sgalvao\snn_regression\models\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth", map_location=DEVICE)
+y_state = torch.load(WEIGHTS_PATH, map_location=DEVICE)
 yNetwork.load_state_dict(y_state)
 yNetwork.to(DEVICE)
 yNetwork.eval()
 
 functional.reset_net(xNetwork)
 functional.reset_net(yNetwork)
+
+
+def unpack_prediction(output_tensor):
+    """
+    Convert a network output shaped like [1, 2] into angle/position scalars.
+    """
+    prediction = output_tensor.detach().reshape(-1).cpu().numpy()
+    if prediction.size != 2:
+        raise ValueError(f"Expected 2 outputs [angle, position], got shape {tuple(output_tensor.shape)}")
+
+    angle_rad = float(prediction[0])
+    position = float(prediction[1])
+    return angle_rad, position
 
 # =============================================================================
 # Testing with the event camera (single camera)
@@ -116,12 +135,15 @@ while camera.isRunning():
         xOutput = xNetwork(eventFrame)
         yOutput = yNetwork(eventFrame)
     
-    if torch.isnan(xOutput) or torch.isnan(yOutput):
+    if torch.isnan(xOutput).any() or torch.isnan(yOutput).any():
         print("NaN detected")
         break
 
-    xOutputDeg = xOutput.item() * 180
-    yOutputDeg = yOutput.item() * 180
+    xAngleRad, xPosition = unpack_prediction(xOutput)
+    yAngleRad, yPosition = unpack_prediction(yOutput)
+
+    xOutputDeg = np.rad2deg(xAngleRad)
+    yOutputDeg = np.rad2deg(yAngleRad)
 
     latency = (time.perf_counter() - start) * 1000
 
@@ -129,4 +151,8 @@ while camera.isRunning():
     cv.imshow("Negative events", negFrame)
     cv.waitKey(1)
 
-    print(f"x Axis Prediction: {xOutput.item():.4f} rad | y Axis Prediction: {yOutput.item():.4f} rad | Latency: {latency:.2f} ms")
+    print(
+        f"X camera -> angle: {xAngleRad:.4f} rad ({xOutputDeg:.2f} deg), position: {xPosition:.4f} | "
+        f"Y camera -> angle: {yAngleRad:.4f} rad ({yOutputDeg:.2f} deg), position: {yPosition:.4f} | "
+        f"Latency: {latency:.2f} ms"
+    )
