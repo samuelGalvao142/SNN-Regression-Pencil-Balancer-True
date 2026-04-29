@@ -46,8 +46,9 @@ class SNN_Net(nn.Module):
         Remember to reset neuron states between sequences with functional.reset_net(model).
     """
     def __init__(self, tau=2.0, final_tau=20.0, layer_list=None, hidden=256, v_reset=0.0,
-                 surrogate_function=surrogate.ATan(), connect_f="ADD", Plif=False, 
-                 norm_type="BN", learnable_norm=True, init_scale=5.0):
+                 surrogate_function=surrogate.ATan(), connect_f="ADD", Plif=False,
+                 norm_type="BN", learnable_norm=True, init_scale=5.0,
+                 readout_mode="linear", output_bias=True):
         
         if layer_list is None:
             if block_type.lower() == "sew":
@@ -62,6 +63,7 @@ class SNN_Net(nn.Module):
         super().__init__()
 
         self.norm_type = norm_type
+        self.readout_mode = readout_mode.lower()
         
         # ====================================================================
         # Build sequential convolution pipeline
@@ -139,12 +141,19 @@ class SNN_Net(nn.Module):
                           if Plif else neuron.LIFNode(tau=tau, v_reset=v_reset, surrogate_function=surrogate_function, detach_reset=True))
         
         # Output layer
-        self.fc_out = nn.Linear(hidden, 2, bias=False) # Test for 2 outputs
-        
-        # Output LIF with INFINITE threshold (for regression)
-        # This neuron never spikes - we read its membrane potential as the prediction
-        self.lif_out = neuron.LIFNode(tau=final_tau, v_threshold=float('inf'), 
-                                      surrogate_function=surrogate_function, detach_reset=True)
+        self.fc_out = nn.Linear(hidden, 2, bias=output_bias)
+
+        if self.readout_mode == "lif":
+            self.lif_out = neuron.LIFNode(
+                tau=final_tau,
+                v_threshold=float('inf'),
+                surrogate_function=surrogate_function,
+                detach_reset=True,
+            )
+        elif self.readout_mode == "linear":
+            self.lif_out = None
+        else:
+            raise ValueError(f"Unknown readout_mode: {readout_mode}")
 
     def detach(self):
         """
@@ -282,10 +291,11 @@ class SNN_Net(nn.Module):
 
         # Output layer (LIF with infinite threshold)
         out = self.fc_out(out)
-        _ = self.lif_out(out)
+        if self.lif_out is None:
+            return out
 
-        # Return membrane potential (continuous value for regression)
-        return self.lif_out.v 
+        _ = self.lif_out(out)
+        return self.lif_out.v
     
 # ============================================================================
 # SEW (Spiking Element-Wise) Architecture
@@ -457,9 +467,12 @@ CONFIG = {
 "tau" : 2.0,
 "final_tau" : 20.0,
 "reset_type" : 'soft',
-"norm_type" : 'BN',
+"norm_type" : 'RMS',
 "learnable_norm" : True,
 "init_scale" : 5.0,
+"optimizer" : "Adam",
+"readout_mode": "linear",
+"output_bias": True,
 }
 
 # ============================================================================
@@ -647,5 +660,7 @@ model = SNN_Net(
     hidden=CONFIG["hidden"],
     norm_type=CONFIG["norm_type"],
     learnable_norm=CONFIG["learnable_norm"],
-    init_scale=CONFIG["init_scale"]
+    init_scale=CONFIG["init_scale"],
+    readout_mode=CONFIG["readout_mode"],
+    output_bias=CONFIG["output_bias"],
 )

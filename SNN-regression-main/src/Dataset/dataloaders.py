@@ -13,10 +13,10 @@ def collate_time_first(batch):
     Collate function that arranges data as [T, B, ...] instead of [B, T, ...].
     This is more natural for processing temporal sequences with SNNs.
     """
-    # batch: list of (frames[T,1,2,H,W], labels[T])
+    # batch: list of (frames[T,C,H,W], labels[T] or labels[T,D])
     frames, labels = zip(*batch)
     frames = torch.stack(frames, dim=1)   # [T, B, C, H, W]
-    labels = torch.stack(labels, dim=1)   # [T, B]
+    labels = torch.stack(labels, dim=1)   # [T, B] or [T, B, D]
     return frames, labels
 
 
@@ -30,9 +30,12 @@ def create_dataloaders(input_data, labels, test_ratio=0.05, val_ratio=0.07, SEQ_
     total_samples = len(input_data)
 
     # Define split ratios
-    test_split = 0.05   # for final testing
-    val_split  = 0.07   # for validation during training
+    test_split = test_ratio
+    val_split = val_ratio
     train_split = 1.0 - test_split - val_split  # for training
+
+    if train_split <= 0:
+        raise ValueError("Invalid split ratios: train split must be positive.")
 
     # Calculate split indices (temporal order maintained)
     train_end = int(train_split * total_samples)

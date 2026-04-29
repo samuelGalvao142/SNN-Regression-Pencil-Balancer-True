@@ -74,11 +74,11 @@ class SequenceDataset(torch.utils.data.Dataset):
                 frame = frame.permute(0, 2, 1)  # [C, W, H] -> [C, H, W]
 
             frames.append(frame)
-            labels.append(label)
+            labels.append(torch.as_tensor(label, dtype=torch.float32))
 
         # Stack into temporal sequences
         frames = torch.stack(frames, dim=0).float()  # [T, C, H, W]
-        labels = torch.tensor(labels, dtype=torch.float32)  # [T]
+        labels = torch.stack(labels, dim=0)
 
         return frames, labels
 
@@ -115,10 +115,10 @@ class ContinuousDataset(torch.utils.data.Dataset):
                 frame = frame.permute(0, 2, 1)  # [C, W, H] -> [C, H, W]
 
             frames.append(frame)
-            labels.append(label)
+            labels.append(torch.as_tensor(label, dtype=torch.float32))
 
-        # Stack: [T, C, H, W] and [T]
+        # Stack: [T, C, H, W] and [T] or [T, D]
         frames = torch.stack(frames, dim=0).float()
-        labels = torch.tensor(labels, dtype=torch.float32)
+        labels = torch.stack(labels, dim=0)
 
         return frames, labels

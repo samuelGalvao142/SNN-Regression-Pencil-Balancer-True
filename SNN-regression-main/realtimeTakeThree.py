@@ -33,7 +33,7 @@ PI = math.pi
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-WEIGHTS_PATH = PROJECT_ROOT / "models" / f"model_{CONFIG['block_type']}_{CONFIG['norm_type']}" / "checkpoints_pencil" / "best_model_weights.pth"
+WEIGHTS_PATH = PROJECT_ROOT / "models" / f"model_{CONFIG['block_type']}_{CONFIG['norm_type']}_{CONFIG['optimizer']}" / "checkpoints_pencil" / "best_model_weights.pth"
 
 if not WEIGHTS_PATH.exists():
     raise FileNotFoundError(f"Pencil model weights not found at: {WEIGHTS_PATH}")
