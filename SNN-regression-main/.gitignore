@@ -1,0 +1,19 @@
+# Data
+data/
+
+# Model artifacts (keep only best + config)
+models/*/checkpoints_*/
+!models/*/checkpoints_*/best_model_weights.pth
+!models/*/checkpoints_*/config.json
+
+# Local scratch/testing notebooks
+test_models.ipynb
+
+# Caches and temp files
+__pycache__/
+*.py[cod]
+*.pyo
+.ipynb_checkpoints/
+*.log
+.DS_Store
+.vscode/
