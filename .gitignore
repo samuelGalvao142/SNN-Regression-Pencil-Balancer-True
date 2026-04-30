@@ -19,6 +19,7 @@ __pycache__/
 
 # Virtual environments
 snn_env/
+snn_env/
 venv/
 
 # Logs
