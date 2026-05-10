@@ -54,6 +54,7 @@ def main():
 	prefetch_factor = None
 	pin_memory = False
 	persistent_workers = False
+	cache_train = False
 
 	# ============================================================================
 	# Model Hyperparameters
@@ -140,6 +141,7 @@ def main():
 		prefetch_factor=prefetch_factor,
 		pin_memory=pin_memory,
 		persistent_workers=persistent_workers,
+		cache_train=cache_train,
 	)
 
 	# ============================================================================
@@ -213,6 +215,9 @@ def main():
 		# Training loop
 		"num_epochs": num_epochs,
 		"device": str(device),
+		"cache_train": cache_train,
+		"wandb_watch_model": False,
+		"log_interval_chunks": 25,
 
 		# Early stopping
 		"early_stop_patience": early_stop_patience,

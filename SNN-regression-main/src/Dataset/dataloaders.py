@@ -28,7 +28,8 @@ def collate_time_first(batch):
 
 
 def create_dataloaders(input_data, labels, test_ratio=0.05, val_ratio=0.07, SEQ_LENGTH=2000, BATCH_SIZE=4, 
-                       num_workers=0, prefetch_factor=None, pin_memory=False, persistent_workers=False):
+                       num_workers=0, prefetch_factor=None, pin_memory=False, persistent_workers=False,
+                       cache_train=False):
 
     # ============================================================================
     # Train/Validation/Test Split
@@ -37,8 +38,8 @@ def create_dataloaders(input_data, labels, test_ratio=0.05, val_ratio=0.07, SEQ_
     total_samples = len(input_data)
 
     # Define split ratios
-    test_split = 0.05   # for final testing
-    val_split  = 0.07   # for validation during training
+    test_split = test_ratio   # for final testing
+    val_split  = val_ratio    # for validation during training
     train_split = 1.0 - test_split - val_split  # for training
 
     # Calculate split indices (temporal order maintained)
@@ -76,19 +77,24 @@ def create_dataloaders(input_data, labels, test_ratio=0.05, val_ratio=0.07, SEQ_
     print(f"Test dataset size:  {len(test_dataset)} samples ({test_split*100:.1f}%)")
 
     # ============================================================================
-    # Cache training data in memory for faster access
+    # Optional cache. Dense DAVIS frames are large (~0.7 MB each as float32), so
+    # caching every transformed frame can silently consume several GB and make
+    # training appear frozen once RAM pressure kicks in.
     # ============================================================================
-    cached_trainset = MemoryCachedDataset(
-        train_dataset, 
-        transform=_numpy_to_float_tensor,
-    )
+    if cache_train:
+        train_base_dataset = MemoryCachedDataset(
+            train_dataset,
+            transform=_numpy_to_float_tensor,
+        )
+    else:
+        train_base_dataset = train_dataset
 
     # ============================================================================
     # Create sequence datasets
     # ============================================================================
 
     # Training and validation use fixed-length sequences
-    trainset = SequenceDataset(cached_trainset, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
+    trainset = SequenceDataset(train_base_dataset, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
     valset = SequenceDataset(val_dataset, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
 
     # Test uses continuous sequence
@@ -182,6 +188,7 @@ def create_multi_run_dataloaders(
     prefetch_factor=None,
     pin_memory=False,
     persistent_workers=False,
+    cache_train=False,
 ):
     """
     Create dataloaders from multiple independent runs while preserving run boundaries.
@@ -208,12 +215,13 @@ def create_multi_run_dataloaders(
     val_base = [_make_base_dataset(run) for run in val_runs]
     test_base = [_make_base_dataset(run) for run in test_runs]
 
-    cached_train_base = [
-        MemoryCachedDataset(dataset, transform=_numpy_to_float_tensor)
-        for dataset in train_base
-    ]
+    if cache_train:
+        train_base = [
+            MemoryCachedDataset(dataset, transform=_numpy_to_float_tensor)
+            for dataset in train_base
+        ]
 
-    trainset = MultiRunSequenceDataset(cached_train_base, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
+    trainset = MultiRunSequenceDataset(train_base, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
     valset = MultiRunSequenceDataset(val_base, seq_length=SEQ_LENGTH, expected_shape=(2, H, W))
     testset = MultiRunContinuousDataset(test_base, expected_shape=(2, H, W))
 

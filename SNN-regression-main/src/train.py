@@ -126,8 +126,14 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
             config=CONFIG,
             dir=str(output_dir)  # Save wandb files in output_dir
         )
-        # Watch model for gradient and parameter tracking
-        wandb.watch(model, log="all", log_freq=100)
+        # Full parameter/gradient histogram watching is expensive for this
+        # timestep loop, so keep it opt-in.
+        if CONFIG.get("wandb_watch_model", False):
+            wandb.watch(
+                model,
+                log=CONFIG.get("wandb_watch_log", "gradients"),
+                log_freq=CONFIG.get("wandb_watch_log_freq", 1000),
+            )
         print("W&B initialized successfully")
         
     # ============================================================================
@@ -180,6 +186,7 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
     device = torch.device(CONFIG["device"])
     early_stop_patience = CONFIG["early_stop_patience"]
     experiment_type = CONFIG["experiment"]  # Get experiment type
+    log_interval_chunks = int(CONFIG.get("log_interval_chunks", 25))
 
     print(f"\n{'='*70}")
     print("Starting TBPTT training")
@@ -265,6 +272,11 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                     end_idx = start_idx + K    
                     target_slice = targets[start_idx:end_idx]
                     loss = loss_fn(mem_rec_trunc.squeeze(-1), target_slice)
+                    if not torch.isfinite(loss):
+                        raise RuntimeError(
+                            f"Non-finite training loss at epoch={epoch + 1}, "
+                            f"batch={batch_idx}, step={step}: {loss.item()}"
+                        )
 
                     # Backward and optimize
                     optimizer.zero_grad()
@@ -278,12 +290,20 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                         total_chunks += 1
                         batch_chunks += 1
 
-                        if use_wandb:
+                        if batch_chunks == 1 or batch_chunks % 5 == 0:
+                            pbar_train.set_postfix({
+                                'loss': f'{(batch_loss / max(1, batch_chunks)):.6f}',
+                                'batch_step': f'{step + 1}/{num_steps}',
+                                'chunks': total_chunks,
+                            })
+
+                        if use_wandb and (total_chunks % log_interval_chunks == 0):
                             wandb.log({
                                 "train/chunk_loss": loss.item(),
                                 "train/learning_rate": current_lr,
                                 "train/epoch": epoch + 1,
                                 "train/batch": batch_idx,
+                                "train/chunk": total_chunks,
                             })
 
                     # Reset
@@ -306,6 +326,11 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                         
                     target_slice = targets[int(start_idx):int(end_idx)]
                     loss = loss_fn(mem_rec_trunc.squeeze(-1), target_slice)
+                    if not torch.isfinite(loss):
+                        raise RuntimeError(
+                            f"Non-finite training loss at epoch={epoch + 1}, "
+                            f"batch={batch_idx}, step={step}: {loss.item()}"
+                        )
 
                     optimizer.zero_grad()
                     loss.backward()
@@ -318,17 +343,27 @@ def train(model, trainloader, valloader, CONFIG, output_dir, loss_fn=torch.nn.MS
                         total_chunks += 1
                         batch_chunks += 1
 
-                        if use_wandb:
+                        pbar_train.set_postfix({
+                            'loss': f'{(batch_loss / max(1, batch_chunks)):.6f}',
+                            'batch_step': f'{step + 1}/{num_steps}',
+                            'chunks': total_chunks,
+                        })
+
+                        if use_wandb and (total_chunks % log_interval_chunks == 0):
                             wandb.log({
                                 "train/chunk_loss": loss.item(),
                                 "train/learning_rate": current_lr,
                                 "train/epoch": epoch + 1,
                                 "train/batch": batch_idx,
+                                "train/chunk": total_chunks,
                             })
                 
             # Update progress bar
             avg_batch_loss = batch_loss / max(1, batch_chunks)
-            pbar_train.set_postfix({'loss': f'{avg_batch_loss:.6f}'})
+            pbar_train.set_postfix({
+                'loss': f'{avg_batch_loss:.6f}',
+                'chunks': total_chunks,
+            })
         
         pbar_train.close()
         
