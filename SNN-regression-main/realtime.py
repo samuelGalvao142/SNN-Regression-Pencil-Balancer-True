@@ -2,7 +2,7 @@
 # SNN Implementation for real time control of mechanical systems from image
 # processing and event cameras
 # =============================================================================
-# Disclaimer: The architecture is based on code provided by Geronimo Marin 
+# Disclaimer: The architecture is based on code provided by Geronimo Marin
 # Hurtado, available at:
 # https://github.com/Geronimo9177/snn-event-regression
 # Most recent access: Feb 17, 2026
@@ -13,164 +13,140 @@
 # Adaptations and real time implementation by Samuel Galvao, supervised by
 # Professor Takashi Tanaka, at Purdue University.
 # =============================================================================
-# Currently running on event camera streamed data
-# To do:
-#   If output doesn't match camera movement, develop training rig and train SNN
-# =============================================================================
 
-import torch
 import time
-import math
-import numpy as np
+
 import dv_processing as dv
+import numpy as np
+import torch
 from spikingjelly.activation_based import functional
-from model_definition import SNN_Net, CONFIG
+
+from model_definition import CONFIG, SNN_Net
 
 # out_port = serial.Serial('COM3', 115200)
 
+EVENT_WINDOW_US = 2_000
+PRINT_INTERVAL_S = 0.10
+INACTIVITY_RESET_S = 0.10
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-bModel = SNN_Net(
-    tau=CONFIG["tau"],
-    final_tau=CONFIG["final_tau"],
-    hidden=CONFIG["hidden"],
-    norm_type=CONFIG["norm_type"],
-    learnable_norm=CONFIG["learnable_norm"],
-    init_scale=CONFIG["init_scale"]
+if DEVICE.type == "cuda":
+    torch.backends.cudnn.benchmark = True
+
+
+def build_model():
+    model = SNN_Net(
+        tau=CONFIG["tau"],
+        final_tau=CONFIG["final_tau"],
+        hidden=CONFIG["hidden"],
+        norm_type=CONFIG["norm_type"],
+        learnable_norm=CONFIG["learnable_norm"],
+        init_scale=CONFIG["init_scale"],
+    )
+    return model.to(DEVICE).eval()
+
+
+def reset_models(*models):
+    for model in models:
+        functional.reset_net(model)
+
+
+bModel = build_model()
+mModel = build_model()
+
+bModel.load_state_dict(
+    torch.load(
+        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_b\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth",
+        map_location=DEVICE,
+    )
+)
+mModel.load_state_dict(
+    torch.load(
+        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_m\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth",
+        map_location=DEVICE,
+    )
 )
 
-mModel = SNN_Net(
-    tau=CONFIG["tau"],
-    final_tau=CONFIG["final_tau"],
-    hidden=CONFIG["hidden"],
-    norm_type=CONFIG["norm_type"],
-    learnable_norm=CONFIG["learnable_norm"],
-    init_scale=CONFIG["init_scale"]
-)
-
-bModel.load_state_dict(torch.load(r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_b\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth"))
-mModel.load_state_dict(torch.load(r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_m\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth"))
-
-bModel.to(DEVICE)
-mModel.to(DEVICE)
-bModel.eval()
-mModel.eval()
-
-functional.reset_net(bModel)
-functional.reset_net(mModel)
+reset_models(bModel, mModel)
 
 capture = dv.io.camera.open()
-
 capture.setEventsRunning(True)
-capture.setFramesRunning(True)
+capture.setFramesRunning(False)
 
 if not capture.isEventStreamAvailable():
     raise RuntimeError("No event camera detected")
 
-resolution = capture.getEventResolution()
-W, H = resolution
-print("Resolution:", resolution)
-
+W, H = capture.getEventResolution()
+print("Resolution:", (W, H))
 print("Live inference started")
 
+frame_np = np.zeros((1, 2, H, W), dtype=np.float32)
+pos_frame = frame_np[0, 0]
+neg_frame = frame_np[0, 1]
+frame_cpu = torch.from_numpy(frame_np)
+frame_device = frame_cpu if DEVICE.type == "cpu" else torch.empty_like(frame_cpu, device=DEVICE)
 
-pos_frame = np.zeros((H, W), dtype=np.float32)
-neg_frame = np.zeros((H, W), dtype=np.float32)
+next_print_time = time.perf_counter()
+last_event_wall_time = time.perf_counter()
 
-# =============================================================================
-# Testing with prerecorded footage
-# =============================================================================
-#reader = io.MonoCameraRecording(r"C:\Users\sgalvao\snn_regression\Pendulum-training-data\pendulum_events-001.aedat4")
+with torch.inference_mode():
+    while capture.isRunning():
+        pos_frame.fill(0)
+        neg_frame.fill(0)
 
-#resolution = reader.getEventResolution()
-#H, W = resolution[1], resolution[0]
+        window_start_ts = None
+        window_end_ts = None
+        inference_start = time.perf_counter()
 
-#accumulator = dv.Accumulator(resolution)
-#accumulator.setDecayFunction(dv.Accumulator.Decay.EXPONENTIAL)
-#accumulator.setDecayParam(1e6)
+        while capture.isRunning():
+            events = capture.getNextEventBatch()
 
-#print("Starting replay...")
+            if events is None:
+                now = time.perf_counter()
+                if now - last_event_wall_time >= INACTIVITY_RESET_S:
+                    reset_models(bModel, mModel)
+                    last_event_wall_time = now
+                continue
 
-#while reader.isRunning():
-#    events = reader.getNextEventBatch()
-#    if events is None:
-#        break
+            events_np = events.numpy()
+            if events_np.size == 0:
+                continue
 
-#    events_np = events.numpy()
+            xs = events_np["x"]
+            ys = events_np["y"]
+            ps = events_np["polarity"]
+            ts = events_np["timestamp"]
 
-#    pos_frame = np.zeros((H, W), dtype=np.float32)
-#    neg_frame = np.zeros((H, W), dtype=np.float32)
+            if window_start_ts is None:
+                window_start_ts = int(ts[0])
 
-#    xs = events_np['x']
-#    ys = events_np['y']
-#    ps = events_np['polarity']
+            window_end_ts = int(ts[-1])
+            last_event_wall_time = time.perf_counter()
 
-#    pos_mask = ps == 1
-#    neg_mask = ps == 0
-    
-#    pos_frame[ys[pos_mask], xs[pos_mask]] += 1
-#    neg_frame[ys[neg_mask], xs[neg_mask]] += 1
+            pos_frame[ys[ps == 1], xs[ps == 1]] += 1.0
+            neg_frame[ys[ps == 0], xs[ps == 0]] += 1.0
 
-#    frame = np.stack([pos_frame, neg_frame], axis=0)
-#    frame = torch.from_numpy(frame).unsqueeze(0).to(DEVICE)
+            if window_end_ts - window_start_ts >= EVENT_WINDOW_US:
+                break
 
-#    with torch.no_grad():
-#        output = model(frame)
+        if window_start_ts is None:
+            continue
 
-#    print(output.item())
+        if DEVICE.type == "cuda":
+            frame_device.copy_(frame_cpu, non_blocking=True)
 
-# =============================================================================
-# Testing with random frame generation
-# =============================================================================
-"""
-try:
-    while True:
+        bOut = bModel(frame_device)
+        mOut = mModel(frame_device)
 
-        frame = torch.randn(1, 2, 346, 260).to(DEVICE)
-        
-        start = time.perf_counter()
-
-        with torch.no_grad():
-            output = model(frame)
-
-        latency = (time.perf_counter() - start) * 1000
-
-        print(f"Prediction: {output.item():.4f} | Latency: {latency:.2f} ms")
-except KeyboardInterrupt:
-    print("Stopping real time inference")
-"""
-
-
-# =============================================================================
-# Testing with the event camera
-# =============================================================================
-while capture.isRunning():
-
-    start = time.perf_counter()
-
-    events = capture.getNextEventBatch()
-    if events is None:
-        continue
-
-    events_np = events.numpy()
-
-    xs = events_np['x']
-    ys = events_np['y']
-    ps = events_np['polarity']
-
-    pos_mask = ps == 1
-    neg_mask = ps == 0
-
-    pos_frame[ys[pos_mask], xs[pos_mask]] += 1
-    neg_frame[ys[neg_mask], xs[neg_mask]] += 1
-
-    frame = np.stack([pos_frame, neg_frame], axis=0)
-    frame = torch.from_numpy(frame).unsqueeze(0).to(DEVICE)
-
-    with torch.no_grad():
-        bOut = bModel(frame)
-        mOut = mModel(frame)
-
-    latency = (time.perf_counter() - start) * 1000
-
-    print(f"Prediction: m = {mOut.item():.4f} | b = {bOut.item():.4f} | x = {mOut.item():.4f}y + {bOut.item():.4f} | Latency: {latency:.2f} ms")
+        now = time.perf_counter()
+        if now >= next_print_time:
+            latency_ms = (now - inference_start) * 1000.0
+            print(
+                f"Prediction: m = {mOut.item():.4f} | "
+                f"b = {bOut.item():.4f} | "
+                f"x = {mOut.item():.4f}y + {bOut.item():.4f} | "
+                f"Window = {window_end_ts - window_start_ts} us | "
+                f"Latency: {latency_ms:.2f} ms"
+            )
+            next_print_time = now + PRINT_INTERVAL_S
