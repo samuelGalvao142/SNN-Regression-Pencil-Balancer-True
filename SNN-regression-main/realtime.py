@@ -26,12 +26,13 @@ from model_definition import CONFIG, SNN_Net
 # out_port = serial.Serial('COM3', 115200)
 
 ENABLE_VISUALIZATION = True
-EVENT_WINDOW_US = 2_000
+EVENT_WINDOW_US = 3_000
 PRINT_INTERVAL_S = 0.10
 VIS_INTERVAL_S = 0.15
 VIS_STRIDE = 2
 INACTIVITY_RESET_S = 0.10
 ENABLE_TF32 = True
+EVENT_BRIGHTNESS_GAIN = 80.0
 
 if ENABLE_VISUALIZATION:
     try:
@@ -71,11 +72,41 @@ def reset_models(*models):
 
 
 def draw_estimated_line(canvas, slope, intercept):
-    y0 = 0
-    y1 = VIS_H - 1
-    x0 = int(round(slope * y0 + intercept))
-    x1 = int(round(slope * y1 + intercept))
-    clipped, pt1, pt2 = cv.clipLine((0, 0, VIS_W, VIS_H), (x0, y0), (x1, y1))
+    """
+    Draw the SNN-predicted line:
+
+        x = slope*y + intercept
+
+    IMPORTANT:
+    slope and intercept should already be denormalized.
+
+    slope:
+        pixel x change per pixel y
+
+    intercept:
+        x pixel coordinate when y = 0
+    """
+
+    # Use full-resolution camera coordinates first
+    y0_full = 0
+    y1_full = H - 1
+
+    x0_full = slope * y0_full + intercept
+    x1_full = slope * y1_full + intercept
+
+    # Convert full-resolution camera coordinates to preview coordinates
+    x0 = int(round(x0_full / VIS_STRIDE))
+    y0 = int(round(y0_full / VIS_STRIDE))
+
+    x1 = int(round(x1_full / VIS_STRIDE))
+    y1 = int(round(y1_full / VIS_STRIDE))
+
+    clipped, pt1, pt2 = cv.clipLine(
+        (0, 0, VIS_W, VIS_H),
+        (x0, y0),
+        (x1, y1)
+    )
+
     if clipped:
         cv.line(canvas, pt1, pt2, (0, 255, 255), 2, cv.LINE_AA)
 
@@ -84,14 +115,27 @@ def update_preview(pos_events, neg_events, slope, intercept, latency_ms):
     if not ENABLE_VISUALIZATION:
         return
 
-    np.clip(pos_events[::VIS_STRIDE, ::VIS_STRIDE] * 24.0, 0, 255, out=preview_green_f32)
-    np.clip(neg_events[::VIS_STRIDE, ::VIS_STRIDE] * 24.0, 0, 255, out=preview_red_f32)
+    np.clip(
+        pos_events[::VIS_STRIDE, ::VIS_STRIDE] * EVENT_BRIGHTNESS_GAIN,
+        0,
+        255,
+        out=preview_green_f32
+    )
+
+    np.clip(
+        neg_events[::VIS_STRIDE, ::VIS_STRIDE] * EVENT_BRIGHTNESS_GAIN,
+        0,
+        255,
+        out=preview_red_f32
+    )
 
     preview_bgr[:, :, 0].fill(0)
     np.copyto(preview_bgr[:, :, 1], preview_green_f32, casting="unsafe")
     np.copyto(preview_bgr[:, :, 2], preview_red_f32, casting="unsafe")
 
-    draw_estimated_line(preview_bgr, slope / VIS_STRIDE, intercept / VIS_STRIDE)
+    # slope and intercept are already denormalized here
+    draw_estimated_line(preview_bgr, slope, intercept)
+
     cv.putText(
         preview_bgr,
         f"m={slope:.3f}  b={intercept:.1f}  {latency_ms:.2f} ms",
@@ -102,6 +146,7 @@ def update_preview(pos_events, neg_events, slope, intercept, latency_ms):
         1,
         cv.LINE_AA,
     )
+
     cv.imshow("SNN Line Estimate", preview_bgr)
     cv.waitKey(1)
 
@@ -111,13 +156,14 @@ mModel = build_model()
 
 bModel.load_state_dict(
     torch.load(
-        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_b\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth",
+        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\interceptTest\may12intercept.pth",
         map_location=DEVICE,
     )
 )
+
 mModel.load_state_dict(
     torch.load(
-        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\lin_m\model_SEW_BN\checkpoints_pendulum\best_model_weights.pth",
+        r"C:\Users\pcadm\Downloads\SNN\SNN-Regression-Pencil-Balancer-True\models\slopeTest\may12slope.pth",
         map_location=DEVICE,
     )
 )
@@ -162,14 +208,18 @@ last_event_wall_time = time.perf_counter()
 if ENABLE_VISUALIZATION:
     cv.namedWindow("SNN Line Estimate", cv.WINDOW_NORMAL)
     preview_bgr = np.zeros((VIS_H, VIS_W, 3), dtype=np.uint8)
-    preview_green_f32 = np.zeros((VIS_H, VIS_W), dtype=np.uint8)
-    preview_red_f32 = np.zeros((VIS_H, VIS_W), dtype=np.uint8)
+
+    # These need to be float32 because np.clip receives float output
+    preview_green_f32 = np.zeros((VIS_H, VIS_W), dtype=np.float32)
+    preview_red_f32 = np.zeros((VIS_H, VIS_W), dtype=np.float32)
 else:
     print("OpenCV not available; visualization disabled.")
+
 
 with torch.inference_mode():
     while capture.isRunning():
         cycle_start = time.perf_counter()
+
         pos_frame.fill(0)
         neg_frame.fill(0)
 
@@ -181,12 +231,15 @@ with torch.inference_mode():
 
             if events is None:
                 now = time.perf_counter()
+
                 if now - last_event_wall_time >= INACTIVITY_RESET_S:
                     reset_models(bModel, mModel)
                     last_event_wall_time = now
+
                 continue
 
             events_np = events.numpy()
+
             if events_np.size == 0:
                 continue
 
@@ -227,16 +280,40 @@ with torch.inference_mode():
                 torch.cuda.synchronize()
 
             inference_end = time.perf_counter()
-            predictions = torch.stack((mOut.reshape(()), bOut.reshape(()))).to("cpu")
-            slope = float(predictions[0])
-            intercept = float(predictions[1])
+
+            predictions = torch.stack(
+                (
+                    mOut.reshape(()),
+                    bOut.reshape(())
+                )
+            ).to("cpu")
+
+            slope_raw = float(predictions[0])
+            intercept_raw = float(predictions[1])
+
+            # ------------------------------------------------------------
+            # Denormalize SNN outputs
+            # ------------------------------------------------------------
+            # Given:
+            #   intercept = normalized_intercept * 280
+            #   slope     = normalized_slope * 0.40 - 0.20
+            #
+            # After this:
+            #   line is x = slope*y + intercept
+            # ------------------------------------------------------------
+
+            slope = (slope_raw * 0.40) - 0.20
+            intercept = intercept_raw * 280.0
 
         if need_print:
             cycle_latency_ms = (inference_end - cycle_start) * 1000.0
             acquisition_ms = (acquisition_end - cycle_start) * 1000.0
             inference_ms = (inference_end - acquisition_end) * 1000.0
+
             print(
-                f"Prediction: m = {slope:.4f} | "
+                f"Raw Prediction: m_norm = {slope_raw:.4f} | "
+                f"b_norm = {intercept_raw:.4f} || "
+                f"Denorm: m = {slope:.4f} | "
                 f"b = {intercept:.4f} | "
                 f"x = {slope:.4f}y + {intercept:.4f} | "
                 f"Window = {window_end_ts - window_start_ts} us | "
@@ -244,6 +321,7 @@ with torch.inference_mode():
                 f"Acquire = {acquisition_ms:.2f} ms | "
                 f"Infer = {inference_ms:.2f} ms"
             )
+
             next_print_time = now + PRINT_INTERVAL_S
 
         if need_visualization:
